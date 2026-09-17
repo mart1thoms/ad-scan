@@ -30,6 +30,18 @@ public class ScanController {
         return scanService.scan(event, request.key().trim());
     }
 
+    /** Walk-in (no badge) entry typed in at the door. */
+    @PostMapping("/api/events/{eventId}/manual-entries")
+    public ManualEntryResult addManualEntry(@PathVariable Integer eventId, @RequestBody ManualEntryRequest request) {
+        return scanService.addManualEntry(findEventOrThrow(eventId), request);
+    }
+
+    /** Undo / adjustment: removes the most recent walk-in entry of that category. */
+    @PostMapping("/api/events/{eventId}/manual-entries/remove")
+    public ManualEntryResult removeManualEntry(@PathVariable Integer eventId, @RequestBody ManualEntryRequest request) {
+        return scanService.removeManualEntry(findEventOrThrow(eventId), request);
+    }
+
     /** Live statistics, polled by the scan page and the event page. */
     @GetMapping("/api/events/{eventId}/stats")
     public EventStats stats(@PathVariable Integer eventId) {

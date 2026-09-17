@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
     <title th:text="${appName} + ' — ' + ${event.name}">Événement</title>
     <link rel="stylesheet" th:href="@{/css/app.css}"/>
 </head>
@@ -36,8 +38,7 @@
     </div>
 
     <p th:if="${event.closed}" class="closed-banner">
-        Soirée fermée le <span th:text="${#temporals.format(event.closedAt, 'dd/MM/yyyy à HH:mm')}"></span> :
-        les entrées ne sont plus acceptées.
+        <span th:text="|Soirée fermée le ${#temporals.format(event.closedAt, 'dd/MM/yyyy à HH:mm')} : les entrées ne sont plus acceptées.|"></span>
     </p>
 
     <h3>Statistiques</h3>
@@ -55,7 +56,7 @@
             </thead>
             <tbody>
             <tr th:each="entry : ${history}">
-                <td th:text="${entry.scannedAt}"></td>
+                <td th:text="${#temporals.format(entry.scannedAt, 'HH:mm:ss')}"></td>
                 <td th:text="${entry.memberName} ?: 'Clé inconnue'"></td>
                 <td>
                     <span th:switch="${entry.status}">
@@ -80,21 +81,38 @@
         /*<![CDATA[*/
         const initialStats = /*[[${stats}]]*/ {};
         const statsEndpoint = /*[[@{/api/events/{id}/stats(id=${event.id})}]]*/ "";
+        const manualEndpoint = /*[[@{/api/events/{id}/manual-entries(id=${event.id})}]]*/ "";
         /*]]>*/
-        const statsEl = document.getElementById("event-stats");
-        renderEventStats(statsEl, initialStats);
+        const csrfToken = document.querySelector('meta[name="_csrf"]').content;
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+        async function refreshStats() {
+            try {
+                const response = await fetch(statsEndpoint, {headers: {"Accept": "application/json"}});
+                if (response.ok) {
+                    statsView.update(await response.json());
+                }
+            } catch (e) {
+                // Offline for a moment: keep the last figures on screen.
+            }
+        }
+
+        // +/- on a walk-in category (adjustments after the fact, while the event is still open).
+        async function adjustManual(category, delta) {
+            const url = delta > 0 ? manualEndpoint : manualEndpoint + "/remove";
+            await fetch(url, {
+                method: "POST",
+                headers: {"Content-Type": "application/json", [csrfHeader]: csrfToken},
+                body: JSON.stringify({formation: category.formation, filiere: category.filiere, alternant: category.alternant})
+            });
+            await refreshStats();
+        }
+
+        const statsView = createStatsView(document.getElementById("event-stats"), {onAdjust: adjustManual});
+        statsView.update(initialStats);
         // Keeps the figures live while a scan is going on elsewhere (another phone at the door).
         if (!initialStats.closed) {
-            setInterval(async () => {
-                try {
-                    const response = await fetch(statsEndpoint, {headers: {"Accept": "application/json"}});
-                    if (response.ok) {
-                        renderEventStats(statsEl, await response.json());
-                    }
-                } catch (e) {
-                    // Offline for a moment: keep the last figures on screen.
-                }
-            }, 5000);
+            setInterval(refreshStats, 5000);
         }
     </script>
 </main>

@@ -5,11 +5,16 @@
 - **Inscription publique** (`/register`) : l'adhérent choisit son profil (étudiant ENSIM avec année,
   filière A&I/Info et alternance à partir de la 3A, personnel ENSIM ou extérieur). Il est créé
   « non cotisant » jusqu'à confirmation par le bureau.
-- **Adhérents** : suppression manuelle depuis la fiche (badge et historique inclus) ; suppression
-  **automatique** le lendemain de la date de fin d'adhésion (au démarrage de l'app puis chaque nuit).
+- **Adhérents** : suppression manuelle depuis la fiche ; suppression **automatique** le lendemain
+  de la date de fin d'adhésion (au démarrage de l'app puis chaque nuit). Les entrées et l'historique
+  des soirées sont conservés (nom et provenance copiés au moment du scan), les stats ne bougent pas.
 - **Soirées** : compteur d'entrées en direct, statistiques en temps réel (provenance ENSIM /
-  extérieur / personnel, année d'étude, filière, alternance, paiements en attente, doublons),
-  fermeture (plus aucune entrée acceptée, stats toujours consultables) et réouverture.
+  extérieur / personnel, année d'étude, filière, alternance, paiements en attente) avec vue
+  « Tous / Adhérents / Sans badge », fermeture (plus aucune entrée acceptée, stats toujours
+  consultables) et réouverture.
+- **Entrées sans badge** : à la porte, boutons +1 Extérieur / Personnel / Étudiant ENSIM (année,
+  filière, alternance) pour compter les non-adhérents dans les stats, avec annulation et
+  ajustement +/− depuis le panneau de stats tant que la soirée est ouverte.
 - **Scan** : chaque badge affiche pendant 3 s une animation plein cadre — vert « entrée validée »
   (nom + provenance), rouge « déjà scannée » / badge inconnu / adhésion expirée, orange
   « paiement de l'adhésion en attente » (non compté comme entrée).

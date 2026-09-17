@@ -107,7 +107,7 @@
             <tr th:each="entry : ${scanHistory}">
                 <td th:text="${entry.eventName}"></td>
                 <td th:text="${entry.eventDate}"></td>
-                <td th:text="${entry.scannedAt}"></td>
+                <td th:text="${#temporals.format(entry.scannedAt, 'dd/MM/yyyy HH:mm')}"></td>
                 <td>
                     <span th:switch="${entry.status}">
                         <span th:case="'OK'" class="status-badge ok">Entrée validée</span>

@@ -2,31 +2,33 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
     <meta name="_csrf" th:content="${_csrf.token}"/>
     <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
     <title th:text="${appName} + ' — Scan ' + ${event.name}">Scan</title>
     <link rel="stylesheet" th:href="@{/css/app.css}"/>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
-<body>
+<body class="scan-body">
 <div th:replace="~{fragments/nav :: nav}"></div>
-<main>
-    <div class="scan-header">
-        <div>
-            <h2 th:text="'Scan des entrées — ' + ${event.name}">Scan des entrées</h2>
-            <p th:text="'Date : ' + ${event.eventDate}"></p>
+<main class="scan-main">
+
+    <!-- Sticky top bar: what the doorperson glances at all night. -->
+    <div class="scan-topbar">
+        <div class="scan-topbar-title">
+            <h2 th:text="${event.name}">Soirée</h2>
+            <small th:text="${event.eventDate}"></small>
         </div>
-        <div class="scan-header-right">
-            <div class="entry-counter" title="Entrées validées">
-                <span class="entry-counter-value" id="entry-count" th:text="${stats.totalEntries}">0</span>
-                <span class="entry-counter-label">entrées</span>
-            </div>
+        <div class="scan-topbar-actions">
             <button type="button" class="btn" id="stats-btn">Stats</button>
             <form id="close-form" method="post" th:action="@{/events/{id}/close(id=${event.id})}"
                   onsubmit="return confirm('Fermer la soirée ? Plus aucune entrée ne sera acceptée (les stats restent consultables).');">
-                <button type="submit" class="btn btn-danger">Fermer la soirée</button>
+                <button type="submit" class="btn btn-danger">Fermer</button>
             </form>
+        </div>
+        <div class="entry-counter" title="Entrées (adhérents + sans badge)">
+            <span class="entry-counter-value" id="entry-count" th:text="${stats.totalEntries}">0</span>
+            <span class="entry-counter-label">entrées</span>
         </div>
     </div>
 
@@ -38,28 +40,75 @@
         </form>
     </div>
 
-    <div class="scan-layout">
-        <div class="scan-camera" id="scan-camera">
-            <div class="scanner-frame">
-                <div id="qr-reader"></div>
-                <div id="scan-overlay" class="scan-overlay" hidden="hidden">
-                    <div class="scan-overlay-icon" id="scan-overlay-icon">✓</div>
-                    <div class="scan-overlay-title" id="scan-overlay-title">Entrée validée</div>
-                    <div class="scan-overlay-name" id="scan-overlay-name"></div>
-                    <div class="scan-overlay-origin" id="scan-overlay-origin"></div>
-                </div>
+    <div id="scan-live">
+        <!-- Camera + full-frame result overlay -->
+        <div class="scanner-frame">
+            <div id="qr-reader"></div>
+            <div id="scan-overlay" class="scan-overlay" hidden="hidden">
+                <div class="scan-overlay-icon" id="scan-overlay-icon">✓</div>
+                <div class="scan-overlay-title" id="scan-overlay-title">Entrée validée</div>
+                <div class="scan-overlay-name" id="scan-overlay-name"></div>
+                <div class="scan-overlay-origin" id="scan-overlay-origin"></div>
             </div>
-            <div id="scan-result"></div>
-
-            <h3>Derniers scans (sur cet appareil)</h3>
-            <ul id="scan-history"></ul>
         </div>
+        <div id="scan-result" class="scan-result"></div>
 
-        <aside class="stats-panel" id="stats-inline" hidden="hidden">
-            <h3>Statistiques de la soirée</h3>
-            <div id="stats-inline-content" class="stats-grid"></div>
-        </aside>
+        <!-- Walk-ins: people without a badge, counted by hand so the stats stay complete. -->
+        <section class="manual-entry">
+            <div class="manual-entry-header">
+                <h3>Entrée sans badge</h3>
+                <small>non-adhérents, comptés dans les stats</small>
+            </div>
+            <div class="manual-quick">
+                <button type="button" class="manual-btn" data-formation="Extérieur">
+                    <span class="manual-btn-plus">+1</span> Extérieur
+                </button>
+                <button type="button" class="manual-btn" data-formation="Personnel ENSIM">
+                    <span class="manual-btn-plus">+1</span> Personnel
+                </button>
+                <button type="button" class="manual-btn" id="manual-student-toggle" aria-expanded="false">
+                    <span class="manual-btn-plus">+1</span> Étudiant ENSIM
+                </button>
+            </div>
+            <div id="manual-student" class="manual-student" hidden="hidden">
+                <div class="pill-row" id="manual-year" data-group="year">
+                    <span class="pill-row-label">Année</span>
+                    <button type="button" class="pill" data-value="1A">1A</button>
+                    <button type="button" class="pill" data-value="2A">2A</button>
+                    <button type="button" class="pill" data-value="3A">3A</button>
+                    <button type="button" class="pill" data-value="4A">4A</button>
+                    <button type="button" class="pill" data-value="5A">5A</button>
+                </div>
+                <div class="pill-row" id="manual-filiere" data-group="filiere" hidden="hidden">
+                    <span class="pill-row-label">Filière</span>
+                    <button type="button" class="pill" data-value="A&amp;I">A&amp;I</button>
+                    <button type="button" class="pill" data-value="Info">Info</button>
+                </div>
+                <div class="pill-row" id="manual-alternant" data-group="alternant" hidden="hidden">
+                    <span class="pill-row-label">Alternance</span>
+                    <button type="button" class="pill" data-value="true">Oui</button>
+                    <button type="button" class="pill" data-value="false">Non</button>
+                </div>
+                <button type="button" class="btn manual-student-add" id="manual-student-add" disabled="disabled">
+                    Ajouter l'entrée
+                </button>
+            </div>
+            <div id="manual-feedback" class="manual-feedback" hidden="hidden">
+                <span id="manual-feedback-text"></span>
+                <button type="button" class="btn btn-small" id="manual-undo">Annuler</button>
+            </div>
+        </section>
+
+        <section class="recent">
+            <h3>Dernières entrées (sur cet appareil)</h3>
+            <ul id="scan-history"></ul>
+        </section>
     </div>
+
+    <aside class="stats-panel" id="stats-inline" hidden="hidden">
+        <h3>Statistiques de la soirée</h3>
+        <div id="stats-inline-content" class="stats-grid"></div>
+    </aside>
 </main>
 
 <dialog id="stats-modal">
@@ -75,6 +124,7 @@
     /*<![CDATA[*/
     const scanEndpoint = /*[[@{/api/events/{id}/scan(id=${event.id})}]]*/ "";
     const statsEndpoint = /*[[@{/api/events/{id}/stats(id=${event.id})}]]*/ "";
+    const manualEndpoint = /*[[@{/api/events/{id}/manual-entries(id=${event.id})}]]*/ "";
     const initialStats = /*[[${stats}]]*/ {};
     /*]]>*/
 
@@ -84,7 +134,8 @@
     const OVERLAY_DURATION_MS = 3000;
     const SAME_CODE_COOLDOWN_MS = 6000;
     const STATS_REFRESH_MS = 3000;
-    const MAX_HISTORY_ENTRIES = 15;
+    const MANUAL_FEEDBACK_MS = 6000;
+    const MAX_HISTORY_ENTRIES = 20;
 
     const resultEl = document.getElementById("scan-result");
     const historyEl = document.getElementById("scan-history");
@@ -97,11 +148,9 @@
     const closedBannerEl = document.getElementById("closed-banner");
     const closedBannerTextEl = document.getElementById("closed-banner-text");
     const closeFormEl = document.getElementById("close-form");
-    const cameraEl = document.getElementById("scan-camera");
+    const liveEl = document.getElementById("scan-live");
     const statsInlineEl = document.getElementById("stats-inline");
-    const statsInlineContentEl = document.getElementById("stats-inline-content");
     const statsModal = document.getElementById("stats-modal");
-    const statsModalContentEl = document.getElementById("stats-modal-content");
 
     let lastCode = null;
     let lastTime = 0;
@@ -110,16 +159,43 @@
     let closed = Boolean(initialStats.closed);
     let latestStats = initialStats;
 
+    function postJson(url, body) {
+        return fetch(url, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", [csrfHeader]: csrfToken},
+            body: JSON.stringify(body)
+        });
+    }
+
+    function setEntryCount(value) {
+        if (typeof value === "number") {
+            entryCountEl.textContent = String(value);
+            entryCountEl.classList.remove("bump");
+            void entryCountEl.offsetWidth; // restart the animation
+            entryCountEl.classList.add("bump");
+        }
+    }
+
+    function vibrate(pattern) {
+        if (navigator.vibrate) {
+            try {
+                navigator.vibrate(pattern);
+            } catch (e) {
+                // Not supported: silent.
+            }
+        }
+    }
+
     // ---- Status presentation -------------------------------------------------------------------
 
     const STATUS_PRESENTATION = {
-        OK: {tone: "ok", icon: "✓", title: "Entrée validée"},
-        DUPLICATE: {tone: "error", icon: "✕", title: "Déjà scannée"},
-        PENDING_PAYMENT: {tone: "warn", icon: "!", title: "Paiement de l'adhésion en attente"},
-        EXPIRED: {tone: "error", icon: "✕", title: "Adhésion expirée"},
-        TOKEN_INVALIDATED: {tone: "error", icon: "✕", title: "Badge invalidé"},
-        UNKNOWN_KEY: {tone: "error", icon: "✕", title: "Badge inconnu"},
-        EVENT_CLOSED: {tone: "error", icon: "✕", title: "Soirée fermée"}
+        OK: {tone: "ok", icon: "✓", title: "Entrée validée", vibration: [80]},
+        DUPLICATE: {tone: "error", icon: "✕", title: "Déjà scannée", vibration: [150, 80, 150]},
+        PENDING_PAYMENT: {tone: "warn", icon: "!", title: "Paiement de l'adhésion en attente", vibration: [300]},
+        EXPIRED: {tone: "error", icon: "✕", title: "Adhésion expirée", vibration: [150, 80, 150]},
+        TOKEN_INVALIDATED: {tone: "error", icon: "✕", title: "Badge invalidé", vibration: [150, 80, 150]},
+        UNKNOWN_KEY: {tone: "error", icon: "✕", title: "Badge inconnu", vibration: [150, 80, 150]},
+        EVENT_CLOSED: {tone: "error", icon: "✕", title: "Soirée fermée", vibration: [300]}
     };
 
     function presentation(status) {
@@ -140,19 +216,11 @@
         lastTime = now;
 
         try {
-            const response = await fetch(scanEndpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    [csrfHeader]: csrfToken
-                },
-                body: JSON.stringify({key: decodedText})
-            });
-            const data = await response.json();
-            handleScanResult(data);
+            const response = await postJson(scanEndpoint, {key: decodedText});
+            handleScanResult(await response.json());
         } catch (e) {
             resultEl.textContent = "Erreur réseau lors du scan.";
-            resultEl.className = "error";
+            resultEl.className = "scan-result error";
         }
     }
 
@@ -160,13 +228,13 @@
         if (data.status === "EVENT_CLOSED") {
             setClosed(true, null);
         }
-        if (typeof data.totalEntries === "number") {
-            entryCountEl.textContent = String(data.totalEntries);
-        }
+        setEntryCount(data.totalEntries);
         resultEl.textContent = data.message;
-        resultEl.className = presentation(data.status).tone;
+        resultEl.className = "scan-result " + presentation(data.status).tone;
         showOverlay(data);
-        addHistoryEntry(data);
+        vibrate(presentation(data.status).vibration);
+        addHistoryEntry(presentation(data.status).tone,
+            (data.memberName || "Badge inconnu") + " — " + presentation(data.status).title, null);
         refreshStats();
     }
 
@@ -187,24 +255,169 @@
         }, OVERLAY_DURATION_MS);
     }
 
-    function addHistoryEntry(data) {
+    function addHistoryEntry(tone, text, undo) {
         const li = document.createElement("li");
-        li.className = presentation(data.status).tone;
+        li.className = tone;
 
         const time = document.createElement("span");
         time.className = "time";
-        time.textContent = new Date().toLocaleTimeString();
+        time.textContent = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
 
         const name = document.createElement("span");
         name.className = "name";
-        name.textContent = (data.memberName ? data.memberName : "Badge inconnu") + " — " + presentation(data.status).title;
+        name.textContent = text;
 
         li.append(time, name);
+        if (undo) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "link-btn";
+            button.textContent = "annuler";
+            button.addEventListener("click", async () => {
+                button.disabled = true;
+                const done = await undo();
+                if (done) {
+                    li.classList.add("undone");
+                    button.remove();
+                } else {
+                    button.disabled = false;
+                }
+            });
+            li.appendChild(button);
+        }
         historyEl.prepend(li);
         while (historyEl.children.length > MAX_HISTORY_ENTRIES) {
             historyEl.removeChild(historyEl.lastChild);
         }
     }
+
+    // ---- Walk-ins (no badge) ---------------------------------------------------------------------
+
+    const studentPanel = document.getElementById("manual-student");
+    const studentToggle = document.getElementById("manual-student-toggle");
+    const yearRow = document.getElementById("manual-year");
+    const filiereRow = document.getElementById("manual-filiere");
+    const alternantRow = document.getElementById("manual-alternant");
+    const studentAddBtn = document.getElementById("manual-student-add");
+    const feedbackEl = document.getElementById("manual-feedback");
+    const feedbackTextEl = document.getElementById("manual-feedback-text");
+    const undoBtn = document.getElementById("manual-undo");
+    const YEARS_WITH_FILIERE = ["3A", "4A", "5A"];
+    const selection = {year: null, filiere: null, alternant: null};
+    let lastManual = null;
+    let feedbackTimer = null;
+
+    function selectedValue(row) {
+        const active = row.querySelector(".pill.active");
+        return active ? active.dataset.value : null;
+    }
+
+    function studentCategory() {
+        const year = selectedValue(yearRow);
+        if (!year) {
+            return null;
+        }
+        if (!YEARS_WITH_FILIERE.includes(year)) {
+            return {formation: year, filiere: null, alternant: null};
+        }
+        const filiere = selectedValue(filiereRow);
+        const alternant = selectedValue(alternantRow);
+        if (!filiere || alternant === null) {
+            return null;
+        }
+        return {formation: year, filiere: filiere, alternant: alternant === "true"};
+    }
+
+    function refreshStudentPanel() {
+        const year = selectedValue(yearRow);
+        const detail = YEARS_WITH_FILIERE.includes(year || "");
+        filiereRow.hidden = !detail;
+        alternantRow.hidden = !detail;
+        studentAddBtn.disabled = studentCategory() === null;
+    }
+
+    for (const row of [yearRow, filiereRow, alternantRow]) {
+        row.addEventListener("click", (event) => {
+            const pill = event.target.closest(".pill");
+            if (!pill) {
+                return;
+            }
+            row.querySelectorAll(".pill").forEach(p => p.classList.toggle("active", p === pill));
+            refreshStudentPanel();
+        });
+    }
+
+    studentToggle.addEventListener("click", () => {
+        studentPanel.hidden = !studentPanel.hidden;
+        studentToggle.setAttribute("aria-expanded", String(!studentPanel.hidden));
+        studentToggle.classList.toggle("open", !studentPanel.hidden);
+    });
+
+    studentAddBtn.addEventListener("click", () => {
+        const category = studentCategory();
+        if (category) {
+            addManual(category);
+        }
+    });
+
+    document.querySelectorAll(".manual-btn[data-formation]").forEach(button => {
+        button.addEventListener("click", () => addManual({formation: button.dataset.formation, filiere: null, alternant: null}));
+    });
+
+    async function addManual(category) {
+        if (closed) {
+            return;
+        }
+        let data;
+        try {
+            const response = await postJson(manualEndpoint, category);
+            data = await response.json();
+        } catch (e) {
+            showFeedback("Erreur réseau : entrée non enregistrée.", false);
+            return;
+        }
+        setEntryCount(data.totalEntries);
+        if (!data.accepted) {
+            showFeedback(data.message, false);
+            return;
+        }
+        lastManual = category;
+        vibrate([40]);
+        showFeedback(data.message + " ajouté", true);
+        addHistoryEntry("manual", "Sans badge — " + data.label, () => removeManual(category));
+        refreshStats();
+    }
+
+    async function removeManual(category) {
+        try {
+            const response = await postJson(manualEndpoint + "/remove", category);
+            const data = await response.json();
+            setEntryCount(data.totalEntries);
+            showFeedback(data.accepted ? data.message + " retiré" : data.message, false);
+            refreshStats();
+            return data.accepted;
+        } catch (e) {
+            showFeedback("Erreur réseau : entrée non retirée.", false);
+            return false;
+        }
+    }
+
+    function showFeedback(text, withUndo) {
+        feedbackTextEl.textContent = text;
+        undoBtn.hidden = !withUndo;
+        feedbackEl.hidden = false;
+        clearTimeout(feedbackTimer);
+        feedbackTimer = setTimeout(() => feedbackEl.hidden = true, MANUAL_FEEDBACK_MS);
+    }
+
+    undoBtn.addEventListener("click", async () => {
+        if (lastManual) {
+            const category = lastManual;
+            lastManual = null;
+            undoBtn.hidden = true;
+            await removeManual(category);
+        }
+    });
 
     // ---- Closed state ----------------------------------------------------------------------------
 
@@ -212,17 +425,28 @@
         closed = isClosed;
         closedBannerEl.hidden = !isClosed;
         closeFormEl.hidden = isClosed;
-        cameraEl.hidden = isClosed;
+        liveEl.hidden = isClosed;
         statsInlineEl.hidden = !isClosed;
         if (isClosed) {
             closedBannerTextEl.textContent = closedAt
                 ? "Soirée fermée le " + closedAt + " : les entrées ne sont plus acceptées."
                 : "Soirée fermée : les entrées ne sont plus acceptées.";
-            renderEventStats(statsInlineContentEl, latestStats);
+            inlineStats.update(latestStats);
         }
     }
 
     // ---- Live statistics -------------------------------------------------------------------------
+
+    async function adjustManual(category, delta) {
+        if (delta > 0) {
+            await addManual({formation: category.formation, filiere: category.filiere, alternant: category.alternant});
+        } else {
+            await removeManual({formation: category.formation, filiere: category.filiere, alternant: category.alternant});
+        }
+    }
+
+    const modalStats = createStatsView(document.getElementById("stats-modal-content"), {onAdjust: adjustManual});
+    const inlineStats = createStatsView(document.getElementById("stats-inline-content"), {});
 
     function applyStats(stats) {
         latestStats = stats;
@@ -231,10 +455,10 @@
             setClosed(stats.closed, stats.closedAt);
         }
         if (statsModal.open) {
-            renderEventStats(statsModalContentEl, stats);
+            modalStats.update(stats);
         }
         if (closed) {
-            renderEventStats(statsInlineContentEl, stats);
+            inlineStats.update(stats);
         }
     }
 
@@ -250,7 +474,7 @@
     }
 
     document.getElementById("stats-btn").addEventListener("click", () => {
-        renderEventStats(statsModalContentEl, latestStats);
+        modalStats.update(latestStats);
         statsModal.showModal();
         refreshStats();
     });
@@ -259,22 +483,45 @@
     setInterval(refreshStats, STATS_REFRESH_MS);
     setClosed(closed, initialStats.closedAt);
 
+    // ---- Keep the screen on while scanning (best effort, Android Chrome / recent iOS) -------------
+
+    let wakeLock = null;
+    async function requestWakeLock() {
+        if (!("wakeLock" in navigator) || closed) {
+            return;
+        }
+        try {
+            wakeLock = await navigator.wakeLock.request("screen");
+        } catch (e) {
+            wakeLock = null;
+        }
+    }
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            requestWakeLock();
+        }
+    });
+    requestWakeLock();
+
     // ---- Camera ----------------------------------------------------------------------------------
 
     if (typeof Html5Qrcode === "undefined") {
         resultEl.textContent = "Lecteur de QR code indisponible (script non chargé).";
-        resultEl.className = "error";
-    } else {
+        resultEl.className = "scan-result error";
+    } else if (!closed) {
         const html5QrCode = new Html5Qrcode("qr-reader");
         html5QrCode.start(
             {facingMode: "environment"},
-            {fps: 10, qrbox: {width: 250, height: 250}},
+            {fps: 10, qrbox: (width, height) => {
+                const size = Math.floor(Math.min(width, height) * 0.75);
+                return {width: size, height: size};
+            }},
             (decodedText) => submitScan(decodedText),
             () => {
             }
         ).catch((err) => {
             resultEl.textContent = "Impossible d'accéder à la caméra : " + err;
-            resultEl.className = "error";
+            resultEl.className = "scan-result error";
         });
     }
 </script>

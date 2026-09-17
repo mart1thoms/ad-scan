@@ -107,13 +107,14 @@ public class MemberRepository {
     }
 
     /**
-     * Removes the member and every row that references it (scan history, participations, token
-     * history, pending access requests). SQLite doesn't enforce foreign keys by default, so the
-     * dependent rows are deleted explicitly rather than relying on ON DELETE CASCADE.
+     * Removes the member, their tokens and pending access requests. Event entries and scan history
+     * are kept (they carry their own copy of the name / provenance, see V8 migration) so the
+     * statistics of past events don't change; they are simply detached from the member.
+     * SQLite doesn't enforce foreign keys by default, so this is done explicitly.
      */
     public void delete(String memberId) {
-        dsl.deleteFrom(SCAN_LOG).where(SCAN_LOG.MEMBER_ID.eq(memberId)).execute();
-        dsl.deleteFrom(PARTICIPATION).where(PARTICIPATION.MEMBER_ID.eq(memberId)).execute();
+        dsl.update(SCAN_LOG).setNull(SCAN_LOG.MEMBER_ID).where(SCAN_LOG.MEMBER_ID.eq(memberId)).execute();
+        dsl.update(PARTICIPATION).setNull(PARTICIPATION.MEMBER_ID).where(PARTICIPATION.MEMBER_ID.eq(memberId)).execute();
         dsl.deleteFrom(ACCESS_REQUEST).where(ACCESS_REQUEST.MEMBER_ID.eq(memberId)).execute();
         dsl.deleteFrom(MEMBER_ACCESS_TOKEN).where(MEMBER_ACCESS_TOKEN.MEMBER_ID.eq(memberId)).execute();
         dsl.deleteFrom(MEMBER).where(MEMBER.ID.eq(memberId)).execute();
