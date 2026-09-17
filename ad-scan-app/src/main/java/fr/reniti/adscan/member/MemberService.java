@@ -55,10 +55,11 @@ public class MemberService {
     /** Created by staff from the back-office: trusted (confirmed) immediately. */
     @Transactional
     public Member create(String firstName, String lastName, String email, String phone, String formation,
-                          LocalDate startDate, LocalDate endDate) {
+                          String filiere, Boolean alternant, LocalDate startDate, LocalDate endDate) {
         String id = UUID.randomUUID().toString();
         String accessToken = generateAccessToken();
-        Member member = memberRepository.insert(id, firstName, lastName, email, phone, formation, startDate, endDate,
+        Member member = memberRepository.insert(id, firstName, lastName, email, phone, formation,
+                normalizeFiliere(formation, filiere), normalizeAlternant(formation, alternant), startDate, endDate,
                 accessToken, true);
         memberAccessTokenRepository.recordIssued(id, accessToken);
         return member;
@@ -70,7 +71,8 @@ public class MemberService {
      * registrant can download their wallet/PDF card right away.
      */
     @Transactional
-    public Member registerPublic(String firstName, String lastName, String email, String phone, String formation) {
+    public Member registerPublic(String firstName, String lastName, String email, String phone, String formation,
+                                  String filiere, Boolean alternant) {
         if (isEmailAlias(email)) {
             throw new IllegalArgumentException("Les alias d'email (contenant un « + ») ne sont pas autorisés.");
         }
@@ -81,10 +83,23 @@ public class MemberService {
         String accessToken = generateAccessToken();
         LocalDate startDate = currentMembershipYearStart(LocalDate.now());
         LocalDate endDate = startDate.plusYears(1).minusDays(1);
-        Member member = memberRepository.insert(id, firstName, lastName, email, phone, formation, startDate, endDate,
+        Member member = memberRepository.insert(id, firstName, lastName, email, phone, formation,
+                normalizeFiliere(formation, filiere), normalizeAlternant(formation, alternant), startDate, endDate,
                 accessToken, false);
         memberAccessTokenRepository.recordIssued(id, accessToken);
         return member;
+    }
+
+    // Filière / alternance only make sense for 3A-5A students; anything else is stored as "not applicable".
+    private static String normalizeFiliere(String formation, String filiere) {
+        if (!FormationOptions.hasFiliere(formation) || filiere == null || filiere.isBlank()) {
+            return null;
+        }
+        return filiere.trim();
+    }
+
+    private static Boolean normalizeAlternant(String formation, Boolean alternant) {
+        return FormationOptions.hasFiliere(formation) ? alternant : null;
     }
 
     // Blocks the "local+tag@domain" alias syntax (supported by Gmail, Outlook, ProtonMail, etc.) so
@@ -128,6 +143,27 @@ public class MemberService {
         memberRepository.updateAccessToken(memberId, newToken);
         memberAccessTokenRepository.recordIssued(memberId, newToken);
         return findById(memberId).orElseThrow(() -> new IllegalStateException("Adhérent disparu pendant la régénération"));
+    }
+
+    /** Permanently removes the member together with their scan history and tokens. */
+    @Transactional
+    public void delete(String memberId) {
+        findById(memberId).orElseThrow(() -> new IllegalArgumentException("Adhérent introuvable"));
+        memberRepository.delete(memberId);
+    }
+
+    /**
+     * Removes every member whose membership end date is already past (strictly before today), and
+     * returns how many were removed. Run automatically once a day and at startup, see
+     * {@link ExpiredMemberPurge}.
+     */
+    @Transactional
+    public int purgeExpired(LocalDate today) {
+        List<Member> expired = memberRepository.findExpired(today);
+        for (Member member : expired) {
+            memberRepository.delete(member.id());
+        }
+        return expired.size();
     }
 
     private static String generateAccessToken() {

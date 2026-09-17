@@ -55,7 +55,8 @@ public class RegistrationController {
     public String register(@ModelAttribute("form") RegistrationForm form, Model model) {
         try {
             Member member = memberService.registerPublic(
-                    form.getFirstName(), form.getLastName(), form.getEmail(), form.getPhone(), form.getFormation());
+                    form.getFirstName(), form.getLastName(), form.getEmail(), form.getPhone(), form.getFormation(),
+                    form.getFiliere(), form.getAlternant());
             String token = accessRequestService.createReusableToken(member.id(), CARD_TOKEN_VALIDITY);
             return "redirect:/register/success?token=" + token;
         } catch (IllegalArgumentException e) {

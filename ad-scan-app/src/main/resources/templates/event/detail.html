@@ -12,10 +12,36 @@
     <div class="actions-bar">
         <div>
             <h2 th:text="${event.name}">Événement</h2>
-            <p th:text="'Date : ' + ${event.eventDate}"></p>
+            <p>
+                <span th:text="'Date : ' + ${event.eventDate}"></span>
+                <span th:if="${event.closed}" class="status-badge error">Fermée</span>
+                <span th:unless="${event.closed}" class="status-badge ok">Ouverte</span>
+            </p>
         </div>
-        <a class="btn" th:href="@{/events/{id}/scan(id=${event.id})}">Scanner les entrées</a>
+        <div class="btn-group">
+            <div class="entry-counter">
+                <span class="entry-counter-value" th:text="${stats.totalEntries}">0</span>
+                <span class="entry-counter-label">entrées</span>
+            </div>
+            <a th:unless="${event.closed}" class="btn" th:href="@{/events/{id}/scan(id=${event.id})}">Scanner les entrées</a>
+            <form th:unless="${event.closed}" method="post" th:action="@{/events/{id}/close(id=${event.id})}"
+                  onsubmit="return confirm('Fermer la soirée ? Plus aucune entrée ne sera acceptée (les stats restent consultables).');">
+                <button type="submit" class="btn btn-danger">Fermer la soirée</button>
+            </form>
+            <form th:if="${event.closed}" method="post" th:action="@{/events/{id}/reopen(id=${event.id})}"
+                  onsubmit="return confirm('Réouvrir la soirée et accepter à nouveau les entrées ?');">
+                <button type="submit" class="btn">Réouvrir la soirée</button>
+            </form>
+        </div>
     </div>
+
+    <p th:if="${event.closed}" class="closed-banner">
+        Soirée fermée le <span th:text="${#temporals.format(event.closedAt, 'dd/MM/yyyy à HH:mm')}"></span> :
+        les entrées ne sont plus acceptées.
+    </p>
+
+    <h3>Statistiques</h3>
+    <div id="event-stats" class="stats-grid"></div>
 
     <h3>Historique des scans</h3>
     <div class="table-wrap">
@@ -36,6 +62,8 @@
                         <span th:case="'OK'" class="status-badge ok">Entrée validée</span>
                         <span th:case="'DUPLICATE'" class="status-badge warn">Doublon</span>
                         <span th:case="'TOKEN_INVALIDATED'" class="status-badge error">Badge invalidé</span>
+                        <span th:case="'PENDING_PAYMENT'" class="status-badge warn">Paiement en attente</span>
+                        <span th:case="'EXPIRED'" class="status-badge error">Adhésion expirée</span>
                         <span th:case="*" class="status-badge error">Clé inconnue</span>
                     </span>
                 </td>
@@ -46,6 +74,29 @@
             </tbody>
         </table>
     </div>
+
+    <script th:src="@{/js/event-stats.js}"></script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const initialStats = /*[[${stats}]]*/ {};
+        const statsEndpoint = /*[[@{/api/events/{id}/stats(id=${event.id})}]]*/ "";
+        /*]]>*/
+        const statsEl = document.getElementById("event-stats");
+        renderEventStats(statsEl, initialStats);
+        // Keeps the figures live while a scan is going on elsewhere (another phone at the door).
+        if (!initialStats.closed) {
+            setInterval(async () => {
+                try {
+                    const response = await fetch(statsEndpoint, {headers: {"Accept": "application/json"}});
+                    if (response.ok) {
+                        renderEventStats(statsEl, await response.json());
+                    }
+                } catch (e) {
+                    // Offline for a moment: keep the last figures on screen.
+                }
+            }, 5000);
+        }
+    </script>
 </main>
 </body>
 </html>

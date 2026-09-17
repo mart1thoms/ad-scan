@@ -4,6 +4,7 @@ import static fr.reniti.adscan.database.jooq.Tables.EVENT;
 
 import fr.reniti.adscan.database.jooq.tables.records.EventRecord;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.jooq.DSLContext;
@@ -20,7 +21,7 @@ public class EventRepository {
 
     public List<Event> findAll() {
         return dsl.selectFrom(EVENT)
-                .orderBy(EVENT.EVENT_DATE.desc())
+                .orderBy(EVENT.EVENT_DATE.desc(), EVENT.ID.desc())
                 .fetch(this::toEvent);
     }
 
@@ -39,7 +40,15 @@ public class EventRepository {
         return toEvent(record);
     }
 
+    /** {@code closedAt == null} reopens the event. */
+    public void updateClosedAt(Integer id, LocalDateTime closedAt) {
+        dsl.update(EVENT)
+                .set(EVENT.CLOSED_AT, closedAt)
+                .where(EVENT.ID.eq(id))
+                .execute();
+    }
+
     private Event toEvent(EventRecord record) {
-        return new Event(record.getId(), record.getName(), record.getEventDate());
+        return new Event(record.getId(), record.getName(), record.getEventDate(), record.getClosedAt());
     }
 }

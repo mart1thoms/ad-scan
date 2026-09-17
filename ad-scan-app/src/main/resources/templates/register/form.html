@@ -65,11 +65,11 @@
                     <label for="annee-1A">1A</label>
                     <input type="radio" name="annee-ui" id="annee-2A" value="2A"/>
                     <label for="annee-2A">2A</label>
-                    <input type="radio" name="annee-ui" id="annee-3A" value="3A A&amp;I ou INFO / Case Alternant" data-needs-detail="true"/>
+                    <input type="radio" name="annee-ui" id="annee-3A" value="3A" data-needs-detail="true"/>
                     <label for="annee-3A">3A</label>
-                    <input type="radio" name="annee-ui" id="annee-4A" value="4A A&amp;I ou INFO / Case alternant" data-needs-detail="true"/>
+                    <input type="radio" name="annee-ui" id="annee-4A" value="4A" data-needs-detail="true"/>
                     <label for="annee-4A">4A</label>
-                    <input type="radio" name="annee-ui" id="annee-5A" value="5A A&amp;I ou INFO / Case alternant" data-needs-detail="true"/>
+                    <input type="radio" name="annee-ui" id="annee-5A" value="5A" data-needs-detail="true"/>
                     <label for="annee-5A">5A</label>
                 </div>
                 <div class="error-msg">Sélectionnez votre année.</div>
@@ -101,6 +101,8 @@
         </div>
 
         <input type="hidden" id="formation" th:field="*{formation}"/>
+        <input type="hidden" id="filiere" th:field="*{filiere}"/>
+        <input type="hidden" id="alternant" th:field="*{alternant}"/>
 
         <button type="submit" id="submitBtn" disabled="disabled">Adhérer</button>
 
@@ -119,6 +121,8 @@
     const anneeBlock = document.getElementById('anneeBlock');
     const filiereBlock = document.getElementById('filiereBlock');
     const formationInput = document.getElementById('formation');
+    const filiereInput = document.getElementById('filiere');
+    const alternantInput = document.getElementById('alternant');
 
     function val(name) {
         const el = form.querySelector(`[name="${name}"]:checked`);
@@ -155,6 +159,11 @@
         } else {
             formationInput.value = profil;
         }
+        // Filière / alternance are only meaningful for 3A-5A students; sent empty otherwise.
+        const detail = profil === 'etudiant' && needsDetail();
+        filiereInput.value = detail ? val('filiere-ui') : '';
+        const alternance = detail ? val('alternance-ui') : '';
+        alternantInput.value = alternance === 'oui' ? 'true' : alternance === 'non' ? 'false' : '';
     }
 
     const textFields = ['firstName', 'lastName'];
@@ -218,8 +227,15 @@
 
     form.addEventListener('input', () => refresh(false));
     form.addEventListener('change', () => refresh(false));
-    form.querySelectorAll('input[type=text], input[type=email], input[type=tel]').forEach(el => {
-        el.addEventListener('blur', () => refresh(true));
+    form.querySelectorAll('input[type=text], input[type=email]').forEach(el => {
+        el.addEventListener('blur', () => {
+            if (el.id === 'email') {
+                validateEmail(true);
+            } else {
+                validateText(el.id, true);
+            }
+            refresh(false);
+        });
     });
 
     form.addEventListener('submit', (e) => {

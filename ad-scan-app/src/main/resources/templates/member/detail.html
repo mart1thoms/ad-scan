@@ -32,6 +32,14 @@
                 <span class="info-label">Formation</span>
                 <span class="info-value" th:text="${member.formation}"></span>
             </div>
+            <div class="info-item" th:if="${member.filiere} != null and !${#strings.isEmpty(member.filiere)}">
+                <span class="info-label">Filière</span>
+                <span class="info-value" th:text="${member.filiere}"></span>
+            </div>
+            <div class="info-item" th:if="${member.alternant} != null">
+                <span class="info-label">Alternance</span>
+                <span class="info-value" th:text="${member.alternant} ? 'Oui' : 'Non'"></span>
+            </div>
             <div class="info-item" th:if="${member.phone} != null and !${#strings.isEmpty(member.phone)}">
                 <span class="info-label">Téléphone</span>
                 <span class="info-value" th:text="${member.phone}"></span>
@@ -40,6 +48,7 @@
                 <span class="info-label">Adhésion</span>
                 <span class="info-value"
                       th:text="${member.endDate} != null ? (${member.startDate} + ' → ' + ${member.endDate}) : ('Depuis le ' + ${member.startDate})"></span>
+                <span class="form-hint" th:if="${member.endDate} != null">Suppression automatique le lendemain de la date de fin.</span>
                 <form method="post" th:action="@{/members/{id}/extend(id=${member.id})}" class="inline-form">
                     <input type="date" name="newEndDate" th:value="${member.endDate}" th:min="${member.startDate}" required="required"/>
                     <button type="submit" class="btn btn-small">Prolonger l'adhésion</button>
@@ -70,6 +79,17 @@
                 <button type="submit" class="btn btn-danger">Régénérer (invalide l'ancien badge)</button>
             </form>
         </div>
+
+        <div class="wallet-card danger-zone">
+            <h3>Supprimer l'adhérent</h3>
+            <p class="wallet-hint">
+                Supprime définitivement l'adhérent, son badge et tout son historique de participations.
+            </p>
+            <form method="post" th:action="@{/members/{id}/delete(id=${member.id})}"
+                  th:attr="onsubmit=|return confirm('Supprimer définitivement ${#strings.escapeJavaScript(member.firstName + ' ' + member.lastName)} ? Cette action est irréversible.');|">
+                <button type="submit" class="btn btn-danger">Supprimer l'adhérent</button>
+            </form>
+        </div>
     </div>
 
     <h3>Historique des participations</h3>
@@ -93,6 +113,8 @@
                         <span th:case="'OK'" class="status-badge ok">Entrée validée</span>
                         <span th:case="'DUPLICATE'" class="status-badge warn">Doublon</span>
                         <span th:case="'TOKEN_INVALIDATED'" class="status-badge error">Badge invalidé</span>
+                        <span th:case="'PENDING_PAYMENT'" class="status-badge warn">Paiement en attente</span>
+                        <span th:case="'EXPIRED'" class="status-badge error">Adhésion expirée</span>
                         <span th:case="*" class="status-badge error">Clé inconnue</span>
                     </span>
                 </td>

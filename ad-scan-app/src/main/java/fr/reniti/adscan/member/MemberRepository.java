@@ -1,6 +1,10 @@
 package fr.reniti.adscan.member;
 
+import static fr.reniti.adscan.database.jooq.Tables.ACCESS_REQUEST;
 import static fr.reniti.adscan.database.jooq.Tables.MEMBER;
+import static fr.reniti.adscan.database.jooq.Tables.MEMBER_ACCESS_TOKEN;
+import static fr.reniti.adscan.database.jooq.Tables.PARTICIPATION;
+import static fr.reniti.adscan.database.jooq.Tables.SCAN_LOG;
 
 import fr.reniti.adscan.database.jooq.tables.records.MemberRecord;
 import java.time.LocalDate;
@@ -43,8 +47,17 @@ public class MemberRepository {
                 .fetchOptional(this::toMember);
     }
 
+    /** Members whose end date is strictly before {@code today}. */
+    public List<Member> findExpired(LocalDate today) {
+        return dsl.selectFrom(MEMBER)
+                .where(MEMBER.END_DATE.isNotNull().and(MEMBER.END_DATE.lessThan(today)))
+                .orderBy(MEMBER.LAST_NAME, MEMBER.FIRST_NAME)
+                .fetch(this::toMember);
+    }
+
     public Member insert(String id, String firstName, String lastName, String email, String phone, String formation,
-                          LocalDate startDate, LocalDate endDate, String accessToken, boolean confirmed) {
+                          String filiere, Boolean alternant, LocalDate startDate, LocalDate endDate, String accessToken,
+                          boolean confirmed) {
         // Set explicitly (rather than relying on the column's DEFAULT CURRENT_TIMESTAMP, which SQLite
         // evaluates in UTC) so created_at/updated_at agree with the JVM's local time zone used everywhere
         // else in the app (scan timestamps, etc.) instead of drifting apart by the local UTC offset.
@@ -56,6 +69,8 @@ public class MemberRepository {
                 .set(MEMBER.EMAIL, email)
                 .set(MEMBER.PHONE, phone)
                 .set(MEMBER.FORMATION, formation)
+                .set(MEMBER.FILIERE, filiere)
+                .set(MEMBER.ALTERNANT, alternant)
                 .set(MEMBER.START_DATE, startDate)
                 .set(MEMBER.END_DATE, endDate)
                 .set(MEMBER.ACCESS_TOKEN, accessToken)
@@ -91,6 +106,19 @@ public class MemberRepository {
                 .execute();
     }
 
+    /**
+     * Removes the member and every row that references it (scan history, participations, token
+     * history, pending access requests). SQLite doesn't enforce foreign keys by default, so the
+     * dependent rows are deleted explicitly rather than relying on ON DELETE CASCADE.
+     */
+    public void delete(String memberId) {
+        dsl.deleteFrom(SCAN_LOG).where(SCAN_LOG.MEMBER_ID.eq(memberId)).execute();
+        dsl.deleteFrom(PARTICIPATION).where(PARTICIPATION.MEMBER_ID.eq(memberId)).execute();
+        dsl.deleteFrom(ACCESS_REQUEST).where(ACCESS_REQUEST.MEMBER_ID.eq(memberId)).execute();
+        dsl.deleteFrom(MEMBER_ACCESS_TOKEN).where(MEMBER_ACCESS_TOKEN.MEMBER_ID.eq(memberId)).execute();
+        dsl.deleteFrom(MEMBER).where(MEMBER.ID.eq(memberId)).execute();
+    }
+
     private Member toMember(MemberRecord record) {
         return new Member(
                 record.getId(),
@@ -99,6 +127,8 @@ public class MemberRepository {
                 record.getEmail(),
                 record.getPhone(),
                 record.getFormation(),
+                record.getFiliere(),
+                record.getAlternant(),
                 record.getStartDate(),
                 record.getEndDate(),
                 record.getAccessToken(),

@@ -20,6 +20,8 @@
                 <th>ID</th>
                 <th>Nom</th>
                 <th>Date</th>
+                <th>Statut</th>
+                <th>Entrées</th>
                 <th>Scan</th>
             </tr>
             </thead>
@@ -28,10 +30,18 @@
                 <td th:text="${event.id}"></td>
                 <td><a th:href="@{/events/{id}(id=${event.id})}" th:text="${event.name}"></a></td>
                 <td th:text="${event.eventDate}"></td>
-                <td><a th:href="@{/events/{id}/scan(id=${event.id})}">Scanner les entrées</a></td>
+                <td>
+                    <span th:if="${event.closed}" class="status-badge error">Fermée</span>
+                    <span th:unless="${event.closed}" class="status-badge ok">Ouverte</span>
+                </td>
+                <td th:text="${entryCounts.getOrDefault(event.id, 0)}"></td>
+                <td>
+                    <a th:if="${!event.closed}" th:href="@{/events/{id}/scan(id=${event.id})}">Scanner les entrées</a>
+                    <a th:if="${event.closed}" th:href="@{/events/{id}(id=${event.id})}">Voir les stats</a>
+                </td>
             </tr>
             <tr th:if="${#lists.isEmpty(events)}">
-                <td colspan="4">Aucun événement pour le moment.</td>
+                <td colspan="6">Aucun événement pour le moment.</td>
             </tr>
             </tbody>
         </table>

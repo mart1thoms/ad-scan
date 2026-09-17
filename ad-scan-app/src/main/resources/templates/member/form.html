@@ -29,14 +29,45 @@
             <option th:each="option : ${formationOptions}" th:value="${option}" th:text="${option}"></option>
         </select>
 
+        <div id="filiere-fields" hidden="hidden">
+            <label for="filiere">Filière</label>
+            <select id="filiere" th:field="*{filiere}">
+                <option value="">—</option>
+                <option th:each="option : ${filiereOptions}" th:value="${option}" th:text="${option}"></option>
+            </select>
+
+            <label for="alternant">Alternance</label>
+            <select id="alternant" th:field="*{alternant}">
+                <option value="">—</option>
+                <option value="true">Oui</option>
+                <option value="false">Non</option>
+            </select>
+        </div>
+
         <label for="startDate">Date de début</label>
         <input type="date" id="startDate" th:field="*{startDate}" required="required"/>
 
         <label for="endDate">Date de fin</label>
         <input type="date" id="endDate" th:field="*{endDate}"/>
+        <p class="form-hint">L'adhérent est supprimé automatiquement le lendemain de sa date de fin.</p>
 
         <button type="submit" class="btn">Créer l'adhérent</button>
     </form>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const yearsWithFiliere = /*[[${yearsWithFiliere}]]*/ [];
+        /*]]>*/
+        const formationSelect = document.getElementById("formation");
+        const filiereFields = document.getElementById("filiere-fields");
+
+        function toggleFiliere() {
+            filiereFields.hidden = !yearsWithFiliere.includes(formationSelect.value);
+        }
+
+        formationSelect.addEventListener("change", toggleFiliere);
+        toggleFiliere();
+    </script>
 </main>
 </body>
 </html>

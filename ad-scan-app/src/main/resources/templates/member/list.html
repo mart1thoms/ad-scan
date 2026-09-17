@@ -20,6 +20,7 @@
                 <th>Prénom</th>
                 <th>Nom</th>
                 <th>Email</th>
+                <th>Provenance</th>
                 <th>Début</th>
                 <th>Fin</th>
                 <th>Statut</th>
@@ -32,6 +33,7 @@
                 <td th:text="${member.firstName}"></td>
                 <td th:text="${member.lastName}"></td>
                 <td th:text="${member.email}"></td>
+                <td th:text="${member.provenance()}"></td>
                 <td th:text="${member.startDate}"></td>
                 <td th:text="${member.endDate}"></td>
                 <td>
@@ -42,7 +44,7 @@
                 <td><a class="btn" th:href="@{/members/{id}(id=${member.id})}">Détails</a></td>
             </tr>
             <tr th:if="${#lists.isEmpty(members)}">
-                <td colspan="8">Aucun adhérent pour le moment.</td>
+                <td colspan="9">Aucun adhérent pour le moment.</td>
             </tr>
             </tbody>
         </table>

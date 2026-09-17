@@ -7,6 +7,8 @@ public class RegistrationForm {
     private String email;
     private String phone;
     private String formation;
+    private String filiere;
+    private Boolean alternant;
 
     public String getFirstName() {
         return firstName;
@@ -46,5 +48,21 @@ public class RegistrationForm {
 
     public void setFormation(String formation) {
         this.formation = formation;
+    }
+
+    public String getFiliere() {
+        return filiere;
+    }
+
+    public void setFiliere(String filiere) {
+        this.filiere = filiere;
+    }
+
+    public Boolean getAlternant() {
+        return alternant;
+    }
+
+    public void setAlternant(Boolean alternant) {
+        this.alternant = alternant;
     }
 }

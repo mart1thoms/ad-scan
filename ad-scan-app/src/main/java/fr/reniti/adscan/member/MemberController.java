@@ -1,6 +1,7 @@
 package fr.reniti.adscan.member;
 
 import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -34,13 +35,15 @@ public class MemberController {
             model.addAttribute("form", new NewMemberForm());
         }
         model.addAttribute("formationOptions", FormationOptions.ALL);
+        model.addAttribute("filiereOptions", FormationOptions.FILIERES);
+        model.addAttribute("yearsWithFiliere", FormationOptions.YEARS_WITH_FILIERE);
         return "member/form";
     }
 
     @PostMapping("/members")
     public String create(@ModelAttribute("form") NewMemberForm form) {
         memberService.create(form.getFirstName(), form.getLastName(), form.getEmail(), form.getPhone(),
-                form.getFormation(), form.getStartDate(), form.getEndDate());
+                form.getFormation(), form.getFiliere(), form.getAlternant(), form.getStartDate(), form.getEndDate());
         return "redirect:/members";
     }
 
@@ -54,7 +57,7 @@ public class MemberController {
     }
 
     @PostMapping("/members/{id}/extend")
-    public String extendMembership(@PathVariable String id, @RequestParam LocalDate newEndDate) {
+    public String extendMembership(@PathVariable String id, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate newEndDate) {
         findMemberOrThrow(id);
         memberService.extendMembership(id, newEndDate);
         return "redirect:/members/" + id;
@@ -65,6 +68,13 @@ public class MemberController {
         findMemberOrThrow(id);
         memberService.confirm(id);
         return "redirect:/members/" + id;
+    }
+
+    @PostMapping("/members/{id}/delete")
+    public String delete(@PathVariable String id) {
+        findMemberOrThrow(id);
+        memberService.delete(id);
+        return "redirect:/members";
     }
 
     @PostMapping("/members/{id}/access-token/regenerate")

@@ -1,6 +1,8 @@
 package fr.reniti.adscan.event;
 
 import fr.reniti.adscan.scan.ScanService;
+import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,7 +10,6 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 @Controller
 public class EventController {
@@ -23,7 +24,9 @@ public class EventController {
 
     @GetMapping("/events")
     public String list(Model model) {
-        model.addAttribute("events", eventService.findAll());
+        List<Event> events = eventService.findAll();
+        model.addAttribute("events", events);
+        model.addAttribute("entryCounts", scanService.entryCountsByEvent());
         return "event/list";
     }
 
@@ -43,18 +46,37 @@ public class EventController {
 
     @GetMapping("/events/{id}")
     public String detail(@PathVariable Integer id, Model model) {
-        Event event = eventService.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Événement introuvable"));
+        Event event = findEventOrThrow(id);
         model.addAttribute("event", event);
+        model.addAttribute("stats", scanService.stats(event));
         model.addAttribute("history", scanService.history(id));
         return "event/detail";
     }
 
     @GetMapping("/events/{id}/scan")
     public String scanPage(@PathVariable Integer id, Model model) {
-        Event event = eventService.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Événement introuvable"));
+        Event event = findEventOrThrow(id);
         model.addAttribute("event", event);
+        model.addAttribute("stats", scanService.stats(event));
         return "scan/scan";
+    }
+
+    @PostMapping("/events/{id}/close")
+    public String close(@PathVariable Integer id) {
+        findEventOrThrow(id);
+        eventService.close(id);
+        return "redirect:/events/" + id;
+    }
+
+    @PostMapping("/events/{id}/reopen")
+    public String reopen(@PathVariable Integer id) {
+        findEventOrThrow(id);
+        eventService.reopen(id);
+        return "redirect:/events/" + id;
+    }
+
+    private Event findEventOrThrow(Integer id) {
+        return eventService.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Événement introuvable"));
     }
 }

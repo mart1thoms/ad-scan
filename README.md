@@ -1,5 +1,19 @@
 # ad-scan
 
+## Fonctionnement
+
+- **Inscription publique** (`/register`) : l'adhérent choisit son profil (étudiant ENSIM avec année,
+  filière A&I/Info et alternance à partir de la 3A, personnel ENSIM ou extérieur). Il est créé
+  « non cotisant » jusqu'à confirmation par le bureau.
+- **Adhérents** : suppression manuelle depuis la fiche (badge et historique inclus) ; suppression
+  **automatique** le lendemain de la date de fin d'adhésion (au démarrage de l'app puis chaque nuit).
+- **Soirées** : compteur d'entrées en direct, statistiques en temps réel (provenance ENSIM /
+  extérieur / personnel, année d'étude, filière, alternance, paiements en attente, doublons),
+  fermeture (plus aucune entrée acceptée, stats toujours consultables) et réouverture.
+- **Scan** : chaque badge affiche pendant 3 s une animation plein cadre — vert « entrée validée »
+  (nom + provenance), rouge « déjà scannée » / badge inconnu / adhésion expirée, orange
+  « paiement de l'adhésion en attente » (non compté comme entrée).
+
 ## Branding des cartes (Apple Wallet + Google Wallet)
 
 Le nom et la couleur de fond affichés sur les deux cartes viennent d'un seul et même bloc, partagé entre les deux, dans `data/config.yml` :

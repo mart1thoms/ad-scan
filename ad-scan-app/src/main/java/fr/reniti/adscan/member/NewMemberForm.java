@@ -1,6 +1,7 @@
 package fr.reniti.adscan.member;
 
 import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
 
 public class NewMemberForm {
 
@@ -9,7 +10,13 @@ public class NewMemberForm {
     private String email;
     private String phone;
     private String formation;
+    private String filiere;
+    private Boolean alternant;
+    // ISO so the value renders as yyyy-MM-dd, the only format an <input type=\"date\"> accepts.
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate startDate = LocalDate.now();
+    // ISO so the value renders as yyyy-MM-dd, the only format an <input type=\"date\"> accepts.
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate endDate;
 
     public String getFirstName() {
@@ -50,6 +57,22 @@ public class NewMemberForm {
 
     public void setFormation(String formation) {
         this.formation = formation;
+    }
+
+    public String getFiliere() {
+        return filiere;
+    }
+
+    public void setFiliere(String filiere) {
+        this.filiere = filiere;
+    }
+
+    public Boolean getAlternant() {
+        return alternant;
+    }
+
+    public void setAlternant(Boolean alternant) {
+        this.alternant = alternant;
     }
 
     public LocalDate getStartDate() {

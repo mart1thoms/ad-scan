@@ -12,180 +12,259 @@
 <body>
 <div th:replace="~{fragments/nav :: nav}"></div>
 <main>
-    <h2 th:text="'Scan des entrées — ' + ${event.name}">Scan des entrées</h2>
-    <p th:text="'Date : ' + ${event.eventDate}"></p>
+    <div class="scan-header">
+        <div>
+            <h2 th:text="'Scan des entrées — ' + ${event.name}">Scan des entrées</h2>
+            <p th:text="'Date : ' + ${event.eventDate}"></p>
+        </div>
+        <div class="scan-header-right">
+            <div class="entry-counter" title="Entrées validées">
+                <span class="entry-counter-value" id="entry-count" th:text="${stats.totalEntries}">0</span>
+                <span class="entry-counter-label">entrées</span>
+            </div>
+            <button type="button" class="btn" id="stats-btn">Stats</button>
+            <form id="close-form" method="post" th:action="@{/events/{id}/close(id=${event.id})}"
+                  onsubmit="return confirm('Fermer la soirée ? Plus aucune entrée ne sera acceptée (les stats restent consultables).');">
+                <button type="submit" class="btn btn-danger">Fermer la soirée</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="closed-banner" class="closed-banner" hidden="hidden">
+        <span id="closed-banner-text">Soirée fermée : les entrées ne sont plus acceptées.</span>
+        <form method="post" th:action="@{/events/{id}/reopen(id=${event.id})}" class="inline-form"
+              onsubmit="return confirm('Réouvrir la soirée et accepter à nouveau les entrées ?');">
+            <button type="submit" class="btn btn-small">Réouvrir la soirée</button>
+        </form>
+    </div>
 
     <div class="scan-layout">
-        <div class="scan-camera">
-            <div id="qr-reader"></div>
+        <div class="scan-camera" id="scan-camera">
+            <div class="scanner-frame">
+                <div id="qr-reader"></div>
+                <div id="scan-overlay" class="scan-overlay" hidden="hidden">
+                    <div class="scan-overlay-icon" id="scan-overlay-icon">✓</div>
+                    <div class="scan-overlay-title" id="scan-overlay-title">Entrée validée</div>
+                    <div class="scan-overlay-name" id="scan-overlay-name"></div>
+                    <div class="scan-overlay-origin" id="scan-overlay-origin"></div>
+                </div>
+            </div>
             <div id="scan-result"></div>
 
             <h3>Derniers scans (sur cet appareil)</h3>
             <ul id="scan-history"></ul>
         </div>
 
-        <aside id="member-panel" class="member-panel">
-            <p class="member-panel-empty">En attente d'un scan…</p>
+        <aside class="stats-panel" id="stats-inline" hidden="hidden">
+            <h3>Statistiques de la soirée</h3>
+            <div id="stats-inline-content" class="stats-grid"></div>
         </aside>
     </div>
+</main>
 
-    <script th:inline="javascript">
-        /*<![CDATA[*/
-        const eventId = /*[[${event.id}]]*/ 0;
-        const scanEndpoint = /*[[@{/api/events/{id}/scan(id=${event.id})}]]*/ "";
-        /*]]>*/
+<dialog id="stats-modal">
+    <div class="modal-header">
+        <h3>Statistiques en temps réel</h3>
+        <button type="button" id="stats-modal-close" aria-label="Fermer">&times;</button>
+    </div>
+    <div id="stats-modal-content" class="stats-grid"></div>
+</dialog>
 
-        const csrfToken = document.querySelector('meta[name="_csrf"]').content;
-        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+<script th:src="@{/js/event-stats.js}"></script>
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const scanEndpoint = /*[[@{/api/events/{id}/scan(id=${event.id})}]]*/ "";
+    const statsEndpoint = /*[[@{/api/events/{id}/stats(id=${event.id})}]]*/ "";
+    const initialStats = /*[[${stats}]]*/ {};
+    /*]]>*/
 
-        const resultEl = document.getElementById("scan-result");
-        const historyEl = document.getElementById("scan-history");
-        const memberPanelEl = document.getElementById("member-panel");
-        const MAX_HISTORY_ENTRIES = 15;
-        let lastCode = null;
-        let lastTime = 0;
-        let lastScanAt = null;
+    const csrfToken = document.querySelector('meta[name="_csrf"]').content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
 
-        function statusClass(status) {
-            if (status === "OK") return "ok";
-            if (status === "DUPLICATE") return "warn";
-            return "error";
+    const OVERLAY_DURATION_MS = 3000;
+    const SAME_CODE_COOLDOWN_MS = 6000;
+    const STATS_REFRESH_MS = 3000;
+    const MAX_HISTORY_ENTRIES = 15;
+
+    const resultEl = document.getElementById("scan-result");
+    const historyEl = document.getElementById("scan-history");
+    const entryCountEl = document.getElementById("entry-count");
+    const overlayEl = document.getElementById("scan-overlay");
+    const overlayIconEl = document.getElementById("scan-overlay-icon");
+    const overlayTitleEl = document.getElementById("scan-overlay-title");
+    const overlayNameEl = document.getElementById("scan-overlay-name");
+    const overlayOriginEl = document.getElementById("scan-overlay-origin");
+    const closedBannerEl = document.getElementById("closed-banner");
+    const closedBannerTextEl = document.getElementById("closed-banner-text");
+    const closeFormEl = document.getElementById("close-form");
+    const cameraEl = document.getElementById("scan-camera");
+    const statsInlineEl = document.getElementById("stats-inline");
+    const statsInlineContentEl = document.getElementById("stats-inline-content");
+    const statsModal = document.getElementById("stats-modal");
+    const statsModalContentEl = document.getElementById("stats-modal-content");
+
+    let lastCode = null;
+    let lastTime = 0;
+    let overlayTimer = null;
+    let overlayActive = false;
+    let closed = Boolean(initialStats.closed);
+    let latestStats = initialStats;
+
+    // ---- Status presentation -------------------------------------------------------------------
+
+    const STATUS_PRESENTATION = {
+        OK: {tone: "ok", icon: "✓", title: "Entrée validée"},
+        DUPLICATE: {tone: "error", icon: "✕", title: "Déjà scannée"},
+        PENDING_PAYMENT: {tone: "warn", icon: "!", title: "Paiement de l'adhésion en attente"},
+        EXPIRED: {tone: "error", icon: "✕", title: "Adhésion expirée"},
+        TOKEN_INVALIDATED: {tone: "error", icon: "✕", title: "Badge invalidé"},
+        UNKNOWN_KEY: {tone: "error", icon: "✕", title: "Badge inconnu"},
+        EVENT_CLOSED: {tone: "error", icon: "✕", title: "Soirée fermée"}
+    };
+
+    function presentation(status) {
+        return STATUS_PRESENTATION[status] || STATUS_PRESENTATION.UNKNOWN_KEY;
+    }
+
+    // ---- Scanning --------------------------------------------------------------------------------
+
+    async function submitScan(decodedText) {
+        if (overlayActive || closed) {
+            return; // the previous result is still on screen, or no more entries are accepted
         }
-
-        async function submitScan(decodedText) {
-            const now = Date.now();
-            if (decodedText === lastCode && now - lastTime < 3000) {
-                return; // avoid re-submitting the same still-visible code within 3s
-            }
-            lastCode = decodedText;
-            lastTime = now;
-
-            try {
-                const response = await fetch(scanEndpoint, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        [csrfHeader]: csrfToken
-                    },
-                    body: JSON.stringify({key: decodedText})
-                });
-                const data = await response.json();
-                showResult(data);
-                addHistoryEntry(data);
-                renderMemberPanel(data);
-            } catch (e) {
-                resultEl.textContent = "Erreur réseau lors du scan.";
-                resultEl.className = "error";
-            }
+        const now = Date.now();
+        if (decodedText === lastCode && now - lastTime < SAME_CODE_COOLDOWN_MS) {
+            return; // avoid re-submitting the same still-visible code right after its own result
         }
+        lastCode = decodedText;
+        lastTime = now;
 
-        function showResult(data) {
-            resultEl.textContent = data.message;
-            resultEl.className = statusClass(data.status);
+        try {
+            const response = await fetch(scanEndpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    [csrfHeader]: csrfToken
+                },
+                body: JSON.stringify({key: decodedText})
+            });
+            const data = await response.json();
+            handleScanResult(data);
+        } catch (e) {
+            resultEl.textContent = "Erreur réseau lors du scan.";
+            resultEl.className = "error";
         }
+    }
 
-        function addHistoryEntry(data) {
-            const li = document.createElement("li");
-            li.className = statusClass(data.status);
-
-            const time = document.createElement("span");
-            time.className = "time";
-            time.textContent = new Date().toLocaleTimeString();
-
-            const name = document.createElement("span");
-            name.className = "name";
-            name.textContent = data.memberName ? data.memberName : "Clé inconnue";
-
-            li.append(time, name);
-            historyEl.prepend(li);
-            while (historyEl.children.length > MAX_HISTORY_ENTRIES) {
-                historyEl.removeChild(historyEl.lastChild);
-            }
+    function handleScanResult(data) {
+        if (data.status === "EVENT_CLOSED") {
+            setClosed(true, null);
         }
-
-        function statusLabel(status) {
-            if (status === "OK") return "Entrée validée";
-            if (status === "DUPLICATE") return "Doublon";
-            if (status === "TOKEN_INVALIDATED") return "Badge invalidé";
-            return "Clé inconnue";
+        if (typeof data.totalEntries === "number") {
+            entryCountEl.textContent = String(data.totalEntries);
         }
+        resultEl.textContent = data.message;
+        resultEl.className = presentation(data.status).tone;
+        showOverlay(data);
+        addHistoryEntry(data);
+        refreshStats();
+    }
 
-        function appendPanelRow(dl, label, value) {
-            const dt = document.createElement("dt");
-            dt.textContent = label;
-            const dd = document.createElement("dd");
-            dd.textContent = value;
-            dl.append(dt, dd);
+    function showOverlay(data) {
+        const look = presentation(data.status);
+        overlayEl.className = "scan-overlay " + look.tone;
+        overlayIconEl.textContent = look.icon;
+        overlayTitleEl.textContent = look.title;
+        overlayNameEl.textContent = data.memberName || "";
+        overlayOriginEl.textContent = data.memberProvenance || (data.memberName ? "" : data.message);
+        overlayEl.hidden = false;
+        overlayActive = true;
+
+        clearTimeout(overlayTimer);
+        overlayTimer = setTimeout(() => {
+            overlayEl.hidden = true;
+            overlayActive = false;
+        }, OVERLAY_DURATION_MS);
+    }
+
+    function addHistoryEntry(data) {
+        const li = document.createElement("li");
+        li.className = presentation(data.status).tone;
+
+        const time = document.createElement("span");
+        time.className = "time";
+        time.textContent = new Date().toLocaleTimeString();
+
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = (data.memberName ? data.memberName : "Badge inconnu") + " — " + presentation(data.status).title;
+
+        li.append(time, name);
+        historyEl.prepend(li);
+        while (historyEl.children.length > MAX_HISTORY_ENTRIES) {
+            historyEl.removeChild(historyEl.lastChild);
         }
+    }
 
-        function formatElapsed(ms) {
-            const totalSeconds = Math.floor(ms / 1000);
-            if (totalSeconds < 5) {
-                return "à l'instant";
-            }
-            if (totalSeconds < 60) {
-                return "il y a " + totalSeconds + "s";
-            }
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            if (minutes < 60) {
-                return "il y a " + minutes + "min" + (seconds > 0 ? " " + seconds + "s" : "");
-            }
-            const hours = Math.floor(minutes / 60);
-            const remainingMinutes = minutes % 60;
-            return "il y a " + hours + "h" + (remainingMinutes > 0 ? remainingMinutes + "min" : "");
+    // ---- Closed state ----------------------------------------------------------------------------
+
+    function setClosed(isClosed, closedAt) {
+        closed = isClosed;
+        closedBannerEl.hidden = !isClosed;
+        closeFormEl.hidden = isClosed;
+        cameraEl.hidden = isClosed;
+        statsInlineEl.hidden = !isClosed;
+        if (isClosed) {
+            closedBannerTextEl.textContent = closedAt
+                ? "Soirée fermée le " + closedAt + " : les entrées ne sont plus acceptées."
+                : "Soirée fermée : les entrées ne sont plus acceptées.";
+            renderEventStats(statsInlineContentEl, latestStats);
         }
+    }
 
-        function updateElapsed() {
-            if (lastScanAt === null) {
-                return;
-            }
-            const el = document.getElementById("member-panel-elapsed");
-            if (el) {
-                el.textContent = formatElapsed(Date.now() - lastScanAt);
-            }
+    // ---- Live statistics -------------------------------------------------------------------------
+
+    function applyStats(stats) {
+        latestStats = stats;
+        entryCountEl.textContent = String(stats.totalEntries);
+        if (stats.closed !== closed) {
+            setClosed(stats.closed, stats.closedAt);
         }
-
-        setInterval(updateElapsed, 1000);
-
-        function renderMemberPanel(data) {
-            memberPanelEl.className = "member-panel " + statusClass(data.status);
-            memberPanelEl.replaceChildren();
-
-            const status = document.createElement("div");
-            status.className = "member-panel-status";
-            status.textContent = statusLabel(data.status);
-            memberPanelEl.appendChild(status);
-
-            lastScanAt = Date.now();
-            const elapsed = document.createElement("div");
-            elapsed.id = "member-panel-elapsed";
-            elapsed.className = "member-panel-elapsed";
-            elapsed.textContent = formatElapsed(0);
-            memberPanelEl.appendChild(elapsed);
-
-            if (data.status === "OK" || data.status === "DUPLICATE") {
-                const name = document.createElement("h3");
-                name.textContent = data.memberName;
-                memberPanelEl.appendChild(name);
-
-                const dl = document.createElement("dl");
-                appendPanelRow(dl, "Email", data.memberEmail || "—");
-                appendPanelRow(dl, "Adhésion", (data.memberStartDate || "—") + " → " + (data.memberEndDate || "—"));
-                appendPanelRow(dl, "Scans cet événement", data.scanCount != null ? String(data.scanCount) : "—");
-                memberPanelEl.appendChild(dl);
-            } else {
-                if (data.memberName) {
-                    const name = document.createElement("h3");
-                    name.textContent = data.memberName;
-                    memberPanelEl.appendChild(name);
-                }
-                const msg = document.createElement("p");
-                msg.textContent = data.message;
-                memberPanelEl.appendChild(msg);
-            }
+        if (statsModal.open) {
+            renderEventStats(statsModalContentEl, stats);
         }
+        if (closed) {
+            renderEventStats(statsInlineContentEl, stats);
+        }
+    }
 
+    async function refreshStats() {
+        try {
+            const response = await fetch(statsEndpoint, {headers: {"Accept": "application/json"}});
+            if (response.ok) {
+                applyStats(await response.json());
+            }
+        } catch (e) {
+            // Offline for a moment: keep the last figures on screen.
+        }
+    }
+
+    document.getElementById("stats-btn").addEventListener("click", () => {
+        renderEventStats(statsModalContentEl, latestStats);
+        statsModal.showModal();
+        refreshStats();
+    });
+    document.getElementById("stats-modal-close").addEventListener("click", () => statsModal.close());
+
+    setInterval(refreshStats, STATS_REFRESH_MS);
+    setClosed(closed, initialStats.closedAt);
+
+    // ---- Camera ----------------------------------------------------------------------------------
+
+    if (typeof Html5Qrcode === "undefined") {
+        resultEl.textContent = "Lecteur de QR code indisponible (script non chargé).";
+        resultEl.className = "error";
+    } else {
         const html5QrCode = new Html5Qrcode("qr-reader");
         html5QrCode.start(
             {facingMode: "environment"},
@@ -197,7 +276,7 @@
             resultEl.textContent = "Impossible d'accéder à la caméra : " + err;
             resultEl.className = "error";
         });
-    </script>
-</main>
+    }
+</script>
 </body>
 </html>
