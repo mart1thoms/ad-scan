@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="|${appName} — ${member.firstName} ${member.lastName}|">Adhérent</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<main>
+    <div class="actions-bar">
+        <div>
+            <h2 th:text="${member.firstName} + ' ' + ${member.lastName}">Adhérent</h2>
+            <p th:text="${member.email}"></p>
+        </div>
+        <a class="btn" th:href="@{/members/{id}/access-card(id=${member.id})}">Partager les accès</a>
+    </div>
+
+    <div class="info-card">
+        <h3>Informations</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Statut</span>
+                <span th:if="${member.confirmed}" class="status-badge ok">Cotisant</span>
+                <span th:unless="${member.confirmed}" class="status-badge warn">Non cotisant</span>
+                <form th:unless="${member.confirmed}" method="post" th:action="@{/members/{id}/confirm(id=${member.id})}" class="inline-form">
+                    <button type="submit" class="btn btn-small">Confirmer l'adhésion</button>
+                </form>
+            </div>
+            <div class="info-item" th:if="${member.formation} != null and !${#strings.isEmpty(member.formation)}">
+                <span class="info-label">Formation</span>
+                <span class="info-value" th:text="${member.formation}"></span>
+            </div>
+            <div class="info-item" th:if="${member.phone} != null and !${#strings.isEmpty(member.phone)}">
+                <span class="info-label">Téléphone</span>
+                <span class="info-value" th:text="${member.phone}"></span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Adhésion</span>
+                <span class="info-value"
+                      th:text="${member.endDate} != null ? (${member.startDate} + ' → ' + ${member.endDate}) : ('Depuis le ' + ${member.startDate})"></span>
+                <form method="post" th:action="@{/members/{id}/extend(id=${member.id})}" class="inline-form">
+                    <input type="date" name="newEndDate" th:value="${member.endDate}" th:min="${member.startDate}" required="required"/>
+                    <button type="submit" class="btn btn-small">Prolonger l'adhésion</button>
+                </form>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Créé le</span>
+                <span class="info-value" th:text="${#temporals.format(member.createdAt, 'dd/MM/yyyy à HH:mm')}"></span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Dernière mise à jour</span>
+                <span class="info-value" th:text="${#temporals.format(member.updatedAt, 'dd/MM/yyyy à HH:mm')}"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wallet-cards">
+        <div class="wallet-card">
+            <h3>Jeton d'accès actif</h3>
+            <dl>
+                <dt>Jeton</dt>
+                <dd><code th:text="${member.accessToken}"></code></dd>
+                <dt>Généré le</dt>
+                <dd th:text="${tokenIssuedAt} != null ? ${#temporals.format(tokenIssuedAt, 'dd/MM/yyyy à HH:mm')} : '—'"></dd>
+            </dl>
+            <form method="post" th:action="@{/members/{id}/access-token/regenerate(id=${member.id})}"
+                  onsubmit="return confirm('Régénérer le jeton ? L\'ancien badge (papier, Google/Apple Wallet déjà ajoutés) cessera immédiatement de fonctionner.');">
+                <button type="submit" class="btn btn-danger">Régénérer (invalide l'ancien badge)</button>
+            </form>
+        </div>
+    </div>
+
+    <h3>Historique des participations</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>Événement</th>
+                <th>Date événement</th>
+                <th>Scanné le</th>
+                <th>Statut</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="entry : ${scanHistory}">
+                <td th:text="${entry.eventName}"></td>
+                <td th:text="${entry.eventDate}"></td>
+                <td th:text="${entry.scannedAt}"></td>
+                <td>
+                    <span th:switch="${entry.status}">
+                        <span th:case="'OK'" class="status-badge ok">Entrée validée</span>
+                        <span th:case="'DUPLICATE'" class="status-badge warn">Doublon</span>
+                        <span th:case="'TOKEN_INVALIDATED'" class="status-badge error">Badge invalidé</span>
+                        <span th:case="*" class="status-badge error">Clé inconnue</span>
+                    </span>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(scanHistory)}">
+                <td colspan="4">Aucune participation pour le moment.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

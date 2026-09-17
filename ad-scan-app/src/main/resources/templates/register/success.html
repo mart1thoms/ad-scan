@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="${appName} + ' — Inscription confirmée'">Inscription confirmée</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin"/>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap"
+          rel="stylesheet"/>
+    <link rel="stylesheet" th:href="@{/css/register.css}"/>
+</head>
+<body class="register-body">
+<div class="wrap">
+    <img th:if="${brandingLogoAvailable}" class="logo" th:src="@{/branding/logo.png}" alt="Logo"/>
+    <div class="wordmark" th:text="${appName}">BDE</div>
+
+    <div th:if="${expired}" class="confirm">
+        <h2>Lien expiré</h2>
+        <p>Ce lien n'est plus valable. Contactez le bureau si vous pensez qu'il s'agit d'une erreur.</p>
+    </div>
+
+    <div th:unless="${expired}" class="confirm">
+        <div class="check">
+            <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+                <path d="M1 7L6.5 12.5L17 1.5" stroke="#86c19a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <h2>Adhésion enregistrée</h2>
+        <p th:text="|Bienvenue, ${firstName}.|">Bienvenue.</p>
+
+        <div class="wallets">
+            <a th:if="${googleWalletUrl}" class="wallet-link" th:href="${googleWalletUrl}" target="_blank">
+                <img class="wallet-badge" th:src="@{/images/wallet/google-wallet-button.svg}" alt="Ajouter à Google Wallet"/>
+            </a>
+            <img th:if="${googleWalletUrl}" class="wallet-qr" th:src="${googleWalletQr}" alt="QR Google Wallet"/>
+
+            <a th:if="${appleWalletUrl}" class="wallet-link" th:href="${appleWalletUrl}" target="_blank">
+                <img class="wallet-badge" th:src="@{/images/wallet/apple-wallet-badge.svg}" alt="Ajouter à Apple Wallet"/>
+            </a>
+            <img th:if="${appleWalletUrl}" class="wallet-qr" th:src="${appleWalletQr}" alt="QR Apple Wallet"/>
+
+            <a class="wallet-link pdf" th:href="${pdfUrl}" target="_blank">Télécharger en PDF</a>
+            <img class="wallet-qr" th:src="${pdfQr}" alt="QR PDF"/>
+        </div>
+
+        <p class="status">
+            Votre adhésion sera validée par le bureau sous peu. Ces liens restent valables 12 heures,
+            réutilisables autant de fois que nécessaire.
+        </p>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: ad-scan
+  config:
+    # Réglages propres au BDE (nom, image, mot de passe) : voir data/config.yml.example.
+    # "optional:" évite un échec au démarrage si le fichier réel n'a pas encore été créé.
+    import: "optional:file:./data/config.yml"
+  datasource:
+    url: jdbc:sqlite:data/ad-scan.sqlite
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      # SQLite allows only one writer at a time; a single pooled connection avoids "database is locked" errors.
+      maximum-pool-size: 1
+  flyway:
+    enabled: true
+
+server:
+  port: 9498
+
+app:
+  # Valeurs par défaut utilisées tant que data/config.yml n'existe pas ; ce dernier les surcharge.
+  name: "Mon BDE"
+  illustration-image: ""
+  # URL publique HTTPS de cette application (ex: https://ad-scan.mon-asso.fr), si elle est exposée
+  # sur internet. Sert uniquement à construire les URLs d'images Google Wallet ci-dessous — laisser
+  # vide si l'app ne tourne qu'en local.
+  public-base-url: ""
+  security:
+    password: "changeme"
+  # Branding partagé par les cartes Google Wallet et Apple Wallet (nom, couleur).
+  # Les images se placent dans branding/ à des chemins fixes (voir branding/README.md) ; un
+  # fichier manquant est simplement ignoré, pas d'erreur si vous n'avez pas encore d'images.
+  wallet:
+    name: "Mon BDE"
+    background-color: "#2b3a55"
+  # Activé automatiquement dès que issuer-id est renseigné.
+  google-wallet:
+    issuer-id: ""
+    class-suffix: "bde_membership"
+    service-account-key-path: "data/google-wallet-service-account.json"
+  # Activé automatiquement dès que pass-type-identifier ET team-identifier sont renseignés.
+  apple-wallet:
+    pass-type-identifier: ""
+    team-identifier: ""
+    p12-path: "data/apple-wallet-pass.p12"
+    p12-password: ""
+    wwdr-cert-path: "data/apple-wallet-wwdr.pem"
+
+logging:
+  level:
+    fr.reniti.adscan: INFO

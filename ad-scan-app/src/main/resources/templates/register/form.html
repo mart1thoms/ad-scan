@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="${appName} + ' — Inscription'">Inscription</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin"/>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap"
+          rel="stylesheet"/>
+    <link rel="stylesheet" th:href="@{/css/register.css}"/>
+</head>
+<body class="register-body">
+<div class="wrap">
+    <img class="logo" th:src="@{/branding/logo-register.jpg}" alt="Logo"/>
+    <div class="wordmark" th:text="${appName}"></div>
+    <div class="tagline">Adhésion</div>
+
+    <p th:if="${error}" class="error-banner" th:text="${error}"></p>
+
+    <form id="registerForm" th:action="@{/register}" th:object="${form}" method="post" novalidate="novalidate">
+
+        <div class="row">
+            <div class="field" data-field="firstName">
+                <label for="firstName">Prénom <span class="req">*</span></label>
+                <input id="firstName" type="text" th:field="*{firstName}" autocomplete="given-name" required="required"/>
+                <div class="error-msg">Le prénom est requis.</div>
+            </div>
+            <div class="field" data-field="lastName">
+                <label for="lastName">Nom <span class="req">*</span></label>
+                <input id="lastName" type="text" th:field="*{lastName}" autocomplete="family-name" required="required"/>
+                <div class="error-msg">Le nom est requis.</div>
+            </div>
+        </div>
+
+        <div class="field" data-field="email">
+            <label for="email">Email <span class="req">*</span></label>
+            <input id="email" type="email" th:field="*{email}" autocomplete="email" required="required"/>
+            <div class="error-msg">Entrez une adresse email valide.</div>
+        </div>
+
+        <div class="field" data-field="phone">
+            <label for="phone">Téléphone</label>
+            <input id="phone" type="tel" th:field="*{phone}" autocomplete="tel"/>
+        </div>
+
+        <div class="field" data-field="profil">
+            <label>Vous êtes <span class="req">*</span></label>
+            <div class="pills" id="profilPills">
+                <input type="radio" name="profil-ui" id="profil-etudiant" value="etudiant"/>
+                <label for="profil-etudiant">Étudiant ENSIM</label>
+                <input type="radio" name="profil-ui" id="profil-personnel" value="Personnel ENSIM"/>
+                <label for="profil-personnel">Personnel ENSIM</label>
+                <input type="radio" name="profil-ui" id="profil-exterieur" value="Extérieur"/>
+                <label for="profil-exterieur">Extérieur</label>
+            </div>
+            <div class="error-msg">Sélectionnez votre statut.</div>
+        </div>
+
+        <div class="sub-block" id="anneeBlock">
+            <div class="field" data-field="annee">
+                <label>Année <span class="req">*</span></label>
+                <div class="pills" id="anneePills">
+                    <input type="radio" name="annee-ui" id="annee-1A" value="1A"/>
+                    <label for="annee-1A">1A</label>
+                    <input type="radio" name="annee-ui" id="annee-2A" value="2A"/>
+                    <label for="annee-2A">2A</label>
+                    <input type="radio" name="annee-ui" id="annee-3A" value="3A A&amp;I ou INFO / Case Alternant" data-needs-detail="true"/>
+                    <label for="annee-3A">3A</label>
+                    <input type="radio" name="annee-ui" id="annee-4A" value="4A A&amp;I ou INFO / Case alternant" data-needs-detail="true"/>
+                    <label for="annee-4A">4A</label>
+                    <input type="radio" name="annee-ui" id="annee-5A" value="5A A&amp;I ou INFO / Case alternant" data-needs-detail="true"/>
+                    <label for="annee-5A">5A</label>
+                </div>
+                <div class="error-msg">Sélectionnez votre année.</div>
+            </div>
+
+            <div class="sub-block" id="filiereBlock">
+                <div class="field" data-field="filiere">
+                    <label>Filière <span class="req">*</span></label>
+                    <div class="pills" id="filierePills">
+                        <input type="radio" name="filiere-ui" id="filiere-ai" value="A&amp;I"/>
+                        <label for="filiere-ai">A&amp;I</label>
+                        <input type="radio" name="filiere-ui" id="filiere-info" value="Info"/>
+                        <label for="filiere-info">Info</label>
+                    </div>
+                    <div class="error-msg">Sélectionnez votre filière.</div>
+                </div>
+
+                <div class="field" data-field="alternance">
+                    <label>En alternance <span class="req">*</span></label>
+                    <div class="pills" id="alternancePills">
+                        <input type="radio" name="alternance-ui" id="alternance-oui" value="oui"/>
+                        <label for="alternance-oui">Oui</label>
+                        <input type="radio" name="alternance-ui" id="alternance-non" value="non"/>
+                        <label for="alternance-non">Non</label>
+                    </div>
+                    <div class="error-msg">Précisez si vous êtes en alternance.</div>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" id="formation" th:field="*{formation}"/>
+
+        <button type="submit" id="submitBtn" disabled="disabled">Adhérer</button>
+
+        <p class="helper">
+            Après adhésion, vous pourrez immédiatement télécharger votre carte de membre
+            (Google Wallet, Apple Wallet ou PDF). Votre adhésion devra ensuite être validée par le bureau.
+        </p>
+    </form>
+</div>
+
+<script th:inline="javascript">
+    const formationOptions = /*[[${formationOptions}]]*/ [];
+
+    const form = document.getElementById('registerForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const anneeBlock = document.getElementById('anneeBlock');
+    const filiereBlock = document.getElementById('filiereBlock');
+    const formationInput = document.getElementById('formation');
+
+    function val(name) {
+        const el = form.querySelector(`[name="${name}"]:checked`);
+        return el ? el.value : '';
+    }
+
+    function fieldEl(name) {
+        return form.querySelector(`[data-field="${name}"]`);
+    }
+
+    function needsDetail() {
+        const checked = form.querySelector('[name="annee-ui"]:checked');
+        return checked !== null && checked.dataset.needsDetail === 'true';
+    }
+
+    function updateVisibility() {
+        const profil = val('profil-ui');
+        anneeBlock.classList.toggle('show', profil === 'etudiant');
+        if (profil !== 'etudiant') {
+            form.querySelectorAll('[name="annee-ui"]').forEach(r => r.checked = false);
+        }
+
+        const showDetail = profil === 'etudiant' && needsDetail();
+        filiereBlock.classList.toggle('show', showDetail);
+        if (!showDetail) {
+            form.querySelectorAll('[name="filiere-ui"], [name="alternance-ui"]').forEach(r => r.checked = false);
+        }
+    }
+
+    function updateFormationValue() {
+        const profil = val('profil-ui');
+        if (profil === 'etudiant') {
+            formationInput.value = val('annee-ui');
+        } else {
+            formationInput.value = profil;
+        }
+    }
+
+    const textFields = ['firstName', 'lastName'];
+
+    function validateText(name, showError) {
+        const el = document.getElementById(name);
+        const ok = el.value.trim().length > 0;
+        if (showError) fieldEl(name).classList.toggle('invalid', !ok);
+        return ok;
+    }
+
+    function validateEmail(showError) {
+        const el = document.getElementById('email');
+        const value = el.value.trim();
+        const ok = /^[^\s@+]+@[^\s@]+\.[^\s@]+$/.test(value);
+        if (showError) fieldEl('email').classList.toggle('invalid', !ok);
+        return ok;
+    }
+
+    function validateProfil(showError) {
+        const ok = val('profil-ui') !== '';
+        if (showError) fieldEl('profil').classList.toggle('invalid', !ok);
+        return ok;
+    }
+
+    function validateFormation(showError) {
+        updateFormationValue();
+        const ok = formationInput.value !== '' && formationOptions.includes(formationInput.value);
+        if (showError && val('profil-ui') === 'etudiant') {
+            fieldEl('annee').classList.toggle('invalid', !ok);
+        }
+        return ok;
+    }
+
+    function validateDetail(showError) {
+        if (val('profil-ui') !== 'etudiant' || !needsDetail()) {
+            return true;
+        }
+        const filiereOk = val('filiere-ui') !== '';
+        const alternanceOk = val('alternance-ui') !== '';
+        if (showError) {
+            fieldEl('filiere').classList.toggle('invalid', !filiereOk);
+            fieldEl('alternance').classList.toggle('invalid', !alternanceOk);
+        }
+        return filiereOk && alternanceOk;
+    }
+
+    function validateAll(showErrors) {
+        let ok = textFields.every(f => validateText(f, showErrors));
+        ok = validateEmail(showErrors) && ok;
+        ok = validateProfil(showErrors) && ok;
+        ok = validateFormation(showErrors) && ok;
+        ok = validateDetail(showErrors) && ok;
+        return ok;
+    }
+
+    function refresh(showErrors) {
+        updateVisibility();
+        submitBtn.disabled = !validateAll(showErrors);
+    }
+
+    form.addEventListener('input', () => refresh(false));
+    form.addEventListener('change', () => refresh(false));
+    form.querySelectorAll('input[type=text], input[type=email], input[type=tel]').forEach(el => {
+        el.addEventListener('blur', () => refresh(true));
+    });
+
+    form.addEventListener('submit', (e) => {
+        if (!validateAll(true)) {
+            e.preventDefault();
+        }
+    });
+
+    refresh(false);
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="${appName} + ' — ' + ${event.name}">Événement</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<main>
+    <div class="actions-bar">
+        <div>
+            <h2 th:text="${event.name}">Événement</h2>
+            <p th:text="'Date : ' + ${event.eventDate}"></p>
+        </div>
+        <a class="btn" th:href="@{/events/{id}/scan(id=${event.id})}">Scanner les entrées</a>
+    </div>
+
+    <h3>Historique des scans</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>Heure</th>
+                <th>Adhérent</th>
+                <th>Statut</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="entry : ${history}">
+                <td th:text="${entry.scannedAt}"></td>
+                <td th:text="${entry.memberName} ?: 'Clé inconnue'"></td>
+                <td>
+                    <span th:switch="${entry.status}">
+                        <span th:case="'OK'" class="status-badge ok">Entrée validée</span>
+                        <span th:case="'DUPLICATE'" class="status-badge warn">Doublon</span>
+                        <span th:case="'TOKEN_INVALIDATED'" class="status-badge error">Badge invalidé</span>
+                        <span th:case="*" class="status-badge error">Clé inconnue</span>
+                    </span>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(history)}">
+                <td colspan="3">Aucun scan pour le moment.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

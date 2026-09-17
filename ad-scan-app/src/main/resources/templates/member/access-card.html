@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <title th:text="|${appName} — Carte d'accès|">Carte d'accès</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<main>
+    <div class="actions-bar">
+        <div>
+            <h2 th:text="${member.firstName} + ' ' + ${member.lastName}">Adhérent</h2>
+            <p th:text="${member.email}"></p>
+        </div>
+        <div class="btn-group">
+            <a class="btn" th:href="@{/members/{id}/access-card.pdf(id=${member.id})}">Télécharger le PDF (pour vous)</a>
+            <button type="button" class="btn" id="share-access-btn">Partager les accès</button>
+        </div>
+    </div>
+
+    <div class="wallet-cards">
+        <div class="wallet-card">
+            <h3>QR d'entrée</h3>
+            <img class="wallet-qr" th:src="@{/members/{id}/qrcode.png(id=${member.id})}" alt="QR d'entrée"/>
+            <p class="wallet-hint">Le code scanné à l'entrée des événements.</p>
+        </div>
+    </div>
+</main>
+
+<dialog id="share-modal">
+    <div class="modal-header">
+        <h3>Partager les accès</h3>
+        <button type="button" id="share-modal-close" aria-label="Fermer">&times;</button>
+    </div>
+    <p class="wallet-hint">
+        Chaque QR ci-dessous n'est utilisable qu'une seule fois et pendant 30 minutes : dès que l'un
+        des trois est utilisé, les deux autres deviennent invalides.
+    </p>
+    <div id="share-modal-content" class="wallet-cards"></div>
+</dialog>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const shareUrl = /*[[@{/members/{id}/access-card/share(id=${member.id})}]]*/ "";
+    const googleWalletBadge = /*[[@{/images/wallet/google-wallet-button.svg}]]*/ "";
+    const appleWalletBadge = /*[[@{/images/wallet/apple-wallet-badge.svg}]]*/ "";
+    /*]]>*/
+
+    const csrfToken = document.querySelector('meta[name="_csrf"]').content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+    const shareBtn = document.getElementById("share-access-btn");
+    const modal = document.getElementById("share-modal");
+    const modalContent = document.getElementById("share-modal-content");
+    document.getElementById("share-modal-close").addEventListener("click", () => modal.close());
+
+    shareBtn.addEventListener("click", async () => {
+        modalContent.replaceChildren();
+        const loading = document.createElement("p");
+        loading.textContent = "Génération en cours…";
+        modalContent.appendChild(loading);
+        modal.showModal();
+
+        try {
+            const response = await fetch(shareUrl, {
+                method: "POST",
+                headers: {[csrfHeader]: csrfToken}
+            });
+            if (!response.ok) {
+                throw new Error("HTTP " + response.status);
+            }
+            const data = await response.json();
+            renderShareContent(data);
+        } catch (e) {
+            modalContent.replaceChildren();
+            const error = document.createElement("p");
+            error.textContent = "Erreur lors de la génération des accès.";
+            modalContent.appendChild(error);
+        }
+    });
+
+    function renderShareContent(data) {
+        modalContent.replaceChildren();
+        if (data.googleWalletUrl) {
+            modalContent.appendChild(buildShareCard("Google Wallet", data.googleWalletUrl, data.googleWalletQr, googleWalletBadge));
+        }
+        if (data.appleWalletUrl) {
+            modalContent.appendChild(buildShareCard("Apple Wallet", data.appleWalletUrl, data.appleWalletQr, appleWalletBadge));
+        }
+        modalContent.appendChild(buildShareCard("PDF", data.pdfRelayUrl, data.pdfRelayQr, null));
+    }
+
+    function buildShareCard(title, url, qrDataUri, badgeSrc) {
+        const card = document.createElement("div");
+        card.className = "wallet-card";
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+
+        if (badgeSrc) {
+            const badge = document.createElement("img");
+            badge.className = "wallet-badge";
+            badge.src = badgeSrc;
+            badge.alt = title;
+            a.appendChild(badge);
+        } else {
+            const h3 = document.createElement("h3");
+            h3.textContent = title;
+            card.appendChild(h3);
+            a.textContent = "Ouvrir";
+        }
+
+        const p = document.createElement("p");
+        p.appendChild(a);
+
+        const img = document.createElement("img");
+        img.className = "wallet-qr";
+        img.src = qrDataUri;
+        img.alt = "QR " + title;
+
+        card.append(p, img);
+        return card;
+    }
+</script>
+</body>
+</html>

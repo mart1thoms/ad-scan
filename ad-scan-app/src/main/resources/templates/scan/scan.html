@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <title th:text="${appName} + ' — Scan ' + ${event.name}">Scan</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<main>
+    <h2 th:text="'Scan des entrées — ' + ${event.name}">Scan des entrées</h2>
+    <p th:text="'Date : ' + ${event.eventDate}"></p>
+
+    <div class="scan-layout">
+        <div class="scan-camera">
+            <div id="qr-reader"></div>
+            <div id="scan-result"></div>
+
+            <h3>Derniers scans (sur cet appareil)</h3>
+            <ul id="scan-history"></ul>
+        </div>
+
+        <aside id="member-panel" class="member-panel">
+            <p class="member-panel-empty">En attente d'un scan…</p>
+        </aside>
+    </div>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const eventId = /*[[${event.id}]]*/ 0;
+        const scanEndpoint = /*[[@{/api/events/{id}/scan(id=${event.id})}]]*/ "";
+        /*]]>*/
+
+        const csrfToken = document.querySelector('meta[name="_csrf"]').content;
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+        const resultEl = document.getElementById("scan-result");
+        const historyEl = document.getElementById("scan-history");
+        const memberPanelEl = document.getElementById("member-panel");
+        const MAX_HISTORY_ENTRIES = 15;
+        let lastCode = null;
+        let lastTime = 0;
+        let lastScanAt = null;
+
+        function statusClass(status) {
+            if (status === "OK") return "ok";
+            if (status === "DUPLICATE") return "warn";
+            return "error";
+        }
+
+        async function submitScan(decodedText) {
+            const now = Date.now();
+            if (decodedText === lastCode && now - lastTime < 3000) {
+                return; // avoid re-submitting the same still-visible code within 3s
+            }
+            lastCode = decodedText;
+            lastTime = now;
+
+            try {
+                const response = await fetch(scanEndpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        [csrfHeader]: csrfToken
+                    },
+                    body: JSON.stringify({key: decodedText})
+                });
+                const data = await response.json();
+                showResult(data);
+                addHistoryEntry(data);
+                renderMemberPanel(data);
+            } catch (e) {
+                resultEl.textContent = "Erreur réseau lors du scan.";
+                resultEl.className = "error";
+            }
+        }
+
+        function showResult(data) {
+            resultEl.textContent = data.message;
+            resultEl.className = statusClass(data.status);
+        }
+
+        function addHistoryEntry(data) {
+            const li = document.createElement("li");
+            li.className = statusClass(data.status);
+
+            const time = document.createElement("span");
+            time.className = "time";
+            time.textContent = new Date().toLocaleTimeString();
+
+            const name = document.createElement("span");
+            name.className = "name";
+            name.textContent = data.memberName ? data.memberName : "Clé inconnue";
+
+            li.append(time, name);
+            historyEl.prepend(li);
+            while (historyEl.children.length > MAX_HISTORY_ENTRIES) {
+                historyEl.removeChild(historyEl.lastChild);
+            }
+        }
+
+        function statusLabel(status) {
+            if (status === "OK") return "Entrée validée";
+            if (status === "DUPLICATE") return "Doublon";
+            if (status === "TOKEN_INVALIDATED") return "Badge invalidé";
+            return "Clé inconnue";
+        }
+
+        function appendPanelRow(dl, label, value) {
+            const dt = document.createElement("dt");
+            dt.textContent = label;
+            const dd = document.createElement("dd");
+            dd.textContent = value;
+            dl.append(dt, dd);
+        }
+
+        function formatElapsed(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            if (totalSeconds < 5) {
+                return "à l'instant";
+            }
+            if (totalSeconds < 60) {
+                return "il y a " + totalSeconds + "s";
+            }
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            if (minutes < 60) {
+                return "il y a " + minutes + "min" + (seconds > 0 ? " " + seconds + "s" : "");
+            }
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            return "il y a " + hours + "h" + (remainingMinutes > 0 ? remainingMinutes + "min" : "");
+        }
+
+        function updateElapsed() {
+            if (lastScanAt === null) {
+                return;
+            }
+            const el = document.getElementById("member-panel-elapsed");
+            if (el) {
+                el.textContent = formatElapsed(Date.now() - lastScanAt);
+            }
+        }
+
+        setInterval(updateElapsed, 1000);
+
+        function renderMemberPanel(data) {
+            memberPanelEl.className = "member-panel " + statusClass(data.status);
+            memberPanelEl.replaceChildren();
+
+            const status = document.createElement("div");
+            status.className = "member-panel-status";
+            status.textContent = statusLabel(data.status);
+            memberPanelEl.appendChild(status);
+
+            lastScanAt = Date.now();
+            const elapsed = document.createElement("div");
+            elapsed.id = "member-panel-elapsed";
+            elapsed.className = "member-panel-elapsed";
+            elapsed.textContent = formatElapsed(0);
+            memberPanelEl.appendChild(elapsed);
+
+            if (data.status === "OK" || data.status === "DUPLICATE") {
+                const name = document.createElement("h3");
+                name.textContent = data.memberName;
+                memberPanelEl.appendChild(name);
+
+                const dl = document.createElement("dl");
+                appendPanelRow(dl, "Email", data.memberEmail || "—");
+                appendPanelRow(dl, "Adhésion", (data.memberStartDate || "—") + " → " + (data.memberEndDate || "—"));
+                appendPanelRow(dl, "Scans cet événement", data.scanCount != null ? String(data.scanCount) : "—");
+                memberPanelEl.appendChild(dl);
+            } else {
+                if (data.memberName) {
+                    const name = document.createElement("h3");
+                    name.textContent = data.memberName;
+                    memberPanelEl.appendChild(name);
+                }
+                const msg = document.createElement("p");
+                msg.textContent = data.message;
+                memberPanelEl.appendChild(msg);
+            }
+        }
+
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        html5QrCode.start(
+            {facingMode: "environment"},
+            {fps: 10, qrbox: {width: 250, height: 250}},
+            (decodedText) => submitScan(decodedText),
+            () => {
+            }
+        ).catch((err) => {
+            resultEl.textContent = "Impossible d'accéder à la caméra : " + err;
+            resultEl.className = "error";
+        });
+    </script>
+</main>
+</body>
+</html>

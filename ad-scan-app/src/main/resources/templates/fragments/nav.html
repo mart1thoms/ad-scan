@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="nav">
+    <header class="app-header">
+        <img th:if="${appIllustration != null and !appIllustration.isEmpty()}" th:src="@{${appIllustration}}" alt="Illustration"/>
+        <h1 th:text="${appName}">BDE</h1>
+        <nav class="app-nav">
+            <a th:href="@{/members}">Adhérents</a>
+            <a th:href="@{/events}">Événements</a>
+            <a th:href="@{/logout}">Déconnexion</a>
+        </nav>
+    </header>
+    <div class="register-hint">
+        Formulaire d'inscription public : <a th:href="${registerUrl}" th:text="${registerUrl}" target="_blank"></a>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="${appName} + ' — Nouvel événement'">Nouvel événement</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<main>
+    <h2>Nouvel événement</h2>
+    <form th:action="@{/events}" th:object="${form}" method="post" class="form-card">
+        <label for="name">Nom de l'événement</label>
+        <input type="text" id="name" th:field="*{name}" required="required"/>
+
+        <label for="eventDate">Date</label>
+        <input type="date" id="eventDate" th:field="*{eventDate}" required="required"/>
+
+        <button type="submit" class="btn">Créer l'événement</button>
+    </form>
+</main>
+</body>
+</html>

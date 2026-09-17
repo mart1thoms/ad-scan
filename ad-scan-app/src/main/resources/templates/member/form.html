@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="${appName} + ' — Nouvel adhérent'">Nouvel adhérent</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<main>
+    <h2>Nouvel adhérent</h2>
+    <form th:action="@{/members}" th:object="${form}" method="post" class="form-card">
+        <label for="firstName">Prénom</label>
+        <input type="text" id="firstName" th:field="*{firstName}" required="required"/>
+
+        <label for="lastName">Nom</label>
+        <input type="text" id="lastName" th:field="*{lastName}" required="required"/>
+
+        <label for="email">Email</label>
+        <input type="email" id="email" th:field="*{email}" required="required"/>
+
+        <label for="phone">Téléphone</label>
+        <input type="tel" id="phone" th:field="*{phone}"/>
+
+        <label for="formation">Formation</label>
+        <select id="formation" th:field="*{formation}">
+            <option value="">—</option>
+            <option th:each="option : ${formationOptions}" th:value="${option}" th:text="${option}"></option>
+        </select>
+
+        <label for="startDate">Date de début</label>
+        <input type="date" id="startDate" th:field="*{startDate}" required="required"/>
+
+        <label for="endDate">Date de fin</label>
+        <input type="date" id="endDate" th:field="*{endDate}"/>
+
+        <button type="submit" class="btn">Créer l'adhérent</button>
+    </form>
+</main>
+</body>
+</html>
