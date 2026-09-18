@@ -83,7 +83,7 @@ public class AccessCardController {
     public ResponseEntity<byte[]> accessCardPdf(@PathVariable String id) {
         Member member = findMemberOrThrow(id);
         try {
-            byte[] pdf = AccessCardPdfGenerator.generate(appProperties.name(), member);
+            byte[] pdf = AccessCardPdfGenerator.generate(appProperties, member);
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_PDF)
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"carte-membre-" + member.id() + ".pdf\"")

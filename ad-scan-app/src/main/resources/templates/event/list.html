@@ -27,15 +27,15 @@
             </thead>
             <tbody>
             <tr th:each="event : ${events}">
-                <td th:text="${event.id}"></td>
-                <td><a th:href="@{/events/{id}(id=${event.id})}" th:text="${event.name}"></a></td>
-                <td th:text="${event.eventDate}"></td>
-                <td>
+                <td data-label="ID" th:text="${event.id}"></td>
+                <td data-label="Nom"><a th:href="@{/events/{id}(id=${event.id})}" th:text="${event.name}"></a></td>
+                <td data-label="Date" th:text="${event.eventDate}"></td>
+                <td data-label="Statut">
                     <span th:if="${event.closed}" class="status-badge error">Fermée</span>
                     <span th:unless="${event.closed}" class="status-badge ok">Ouverte</span>
                 </td>
-                <td th:text="${entryCounts.getOrDefault(event.id, 0)}"></td>
-                <td>
+                <td data-label="Entrées" th:text="${entryCounts.getOrDefault(event.id, 0)}"></td>
+                <td data-label="Scan">
                     <a th:if="${!event.closed}" th:href="@{/events/{id}/scan(id=${event.id})}">Scanner les entrées</a>
                     <a th:if="${event.closed}" th:href="@{/events/{id}(id=${event.id})}">Voir les stats</a>
                 </td>

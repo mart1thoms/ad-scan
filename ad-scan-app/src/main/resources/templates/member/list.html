@@ -13,42 +13,19 @@
         <h2>Adhérents</h2>
         <a class="btn" th:href="@{/members/new}">+ Ajouter un adhérent</a>
     </div>
-    <div class="table-wrap">
-        <table>
-            <thead>
-            <tr>
-                <th>Prénom</th>
-                <th>Nom</th>
-                <th>Email</th>
-                <th>Provenance</th>
-                <th>Début</th>
-                <th>Fin</th>
-                <th>Statut</th>
-                <th>Créé le</th>
-                <th>Détails</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="member : ${members}">
-                <td th:text="${member.firstName}"></td>
-                <td th:text="${member.lastName}"></td>
-                <td th:text="${member.email}"></td>
-                <td th:text="${member.provenance()}"></td>
-                <td th:text="${member.startDate}"></td>
-                <td th:text="${member.endDate}"></td>
-                <td>
-                    <span th:if="${member.confirmed}" class="status-badge ok">Cotisant</span>
-                    <span th:unless="${member.confirmed}" class="status-badge warn">Non cotisant</span>
-                </td>
-                <td th:text="${member.createdAt}"></td>
-                <td><a class="btn" th:href="@{/members/{id}(id=${member.id})}">Détails</a></td>
-            </tr>
-            <tr th:if="${#lists.isEmpty(members)}">
-                <td colspan="9">Aucun adhérent pour le moment.</td>
-            </tr>
-            </tbody>
-        </table>
-    </div>
+    <ul class="member-list">
+        <li th:each="member : ${members}">
+            <a class="member-list-name" th:href="@{/members/{id}(id=${member.id})}"
+               th:text="${member.firstName} + ' ' + ${member.lastName}"></a>
+            <span th:if="${member.confirmed}" class="status-badge ok">Cotisant</span>
+            <span th:unless="${member.confirmed}" class="status-badge warn">Non cotisant</span>
+            <form method="post" th:action="@{/members/{id}/delete(id=${member.id})}"
+                  th:attr="onsubmit=|return confirm('Supprimer définitivement ${#strings.escapeJavaScript(member.firstName + ' ' + member.lastName)} ? Cette action est irréversible.');|">
+                <button type="submit" class="btn btn-danger btn-small">Supprimer</button>
+            </form>
+        </li>
+        <li th:if="${#lists.isEmpty(members)}" class="member-list-empty">Aucun adhérent pour le moment.</li>
+    </ul>
 </main>
 </body>
 </html>

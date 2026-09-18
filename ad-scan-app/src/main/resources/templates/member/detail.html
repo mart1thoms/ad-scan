@@ -105,10 +105,10 @@
             </thead>
             <tbody>
             <tr th:each="entry : ${scanHistory}">
-                <td th:text="${entry.eventName}"></td>
-                <td th:text="${entry.eventDate}"></td>
-                <td th:text="${#temporals.format(entry.scannedAt, 'dd/MM/yyyy HH:mm')}"></td>
-                <td>
+                <td data-label="Événement" th:text="${entry.eventName}"></td>
+                <td data-label="Date événement" th:text="${entry.eventDate}"></td>
+                <td data-label="Scanné le" th:text="${#temporals.format(entry.scannedAt, 'dd/MM/yyyy HH:mm')}"></td>
+                <td data-label="Statut">
                     <span th:switch="${entry.status}">
                         <span th:case="'OK'" class="status-badge ok">Entrée validée</span>
                         <span th:case="'DUPLICATE'" class="status-badge warn">Doublon</span>

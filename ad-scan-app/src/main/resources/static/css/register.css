@@ -94,7 +94,8 @@ input[type=text], input[type=email], input[type=tel] {
     border-bottom: 1px solid rgba(136, 140, 148, .4);
     color: var(--cream);
     font-family: 'Inter', sans-serif;
-    font-size: 15px;
+    /* 16px minimum stops iOS Safari from auto-zooming the page in when a field is focused. */
+    font-size: 16px;
     padding: 8px 2px 9px;
     outline: none;
     transition: border-color .15s ease;

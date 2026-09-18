@@ -34,10 +34,13 @@
 
     <div id="closed-banner" class="closed-banner" hidden="hidden">
         <span id="closed-banner-text">Soirée fermée : les entrées ne sont plus acceptées.</span>
-        <form method="post" th:action="@{/events/{id}/reopen(id=${event.id})}" class="inline-form"
-              onsubmit="return confirm('Réouvrir la soirée et accepter à nouveau les entrées ?');">
-            <button type="submit" class="btn btn-small">Réouvrir la soirée</button>
-        </form>
+        <div class="inline-form">
+            <a class="btn btn-small" th:href="@{/events/{id}(id=${event.id})}">Voir les stats &amp; graphiques</a>
+            <form method="post" th:action="@{/events/{id}/reopen(id=${event.id})}"
+                  onsubmit="return confirm('Réouvrir la soirée et accepter à nouveau les entrées ?');">
+                <button type="submit" class="btn btn-small">Réouvrir la soirée</button>
+            </form>
+        </div>
     </div>
 
     <div id="scan-live">
@@ -347,16 +350,38 @@
         });
     }
 
+    function collapseStudentPanel() {
+        studentPanel.hidden = true;
+        studentToggle.setAttribute("aria-expanded", "false");
+        studentToggle.classList.remove("open");
+        [yearRow, filiereRow, alternantRow].forEach(
+            row => row.querySelectorAll(".pill.active").forEach(p => p.classList.remove("active")));
+        filiereRow.hidden = true;
+        alternantRow.hidden = true;
+        studentAddBtn.disabled = true;
+    }
+
+    function scrollToScanner() {
+        document.querySelector(".scanner-frame").scrollIntoView({behavior: "smooth", block: "start"});
+    }
+
     studentToggle.addEventListener("click", () => {
         studentPanel.hidden = !studentPanel.hidden;
         studentToggle.setAttribute("aria-expanded", String(!studentPanel.hidden));
         studentToggle.classList.toggle("open", !studentPanel.hidden);
+        if (!studentPanel.hidden) {
+            // Bring the year/filière/alternance pills into view instead of leaving the doorperson
+            // to scroll down manually to find them.
+            studentPanel.scrollIntoView({behavior: "smooth", block: "center"});
+        }
     });
 
-    studentAddBtn.addEventListener("click", () => {
+    studentAddBtn.addEventListener("click", async () => {
         const category = studentCategory();
         if (category) {
-            addManual(category);
+            await addManual(category);
+            collapseStudentPanel();
+            scrollToScanner();
         }
     });
 
@@ -505,24 +530,63 @@
 
     // ---- Camera ----------------------------------------------------------------------------------
 
-    if (typeof Html5Qrcode === "undefined") {
-        resultEl.textContent = "Lecteur de QR code indisponible (script non chargé).";
+    function showCameraError(message) {
+        resultEl.textContent = message;
         resultEl.className = "scan-result error";
-    } else if (!closed) {
+    }
+
+    function startQrReader() {
         const html5QrCode = new Html5Qrcode("qr-reader");
         html5QrCode.start(
             {facingMode: "environment"},
-            {fps: 10, qrbox: (width, height) => {
-                const size = Math.floor(Math.min(width, height) * 0.75);
-                return {width: size, height: size};
-            }},
+            {
+                fps: 10,
+                aspectRatio: 1.0,
+                // html5-qrcode draws the preview onto a canvas sized to the camera's *native*
+                // resolution (e.g. 1280x720) and positions its scan-box overlay in that same
+                // pixel space — CSS-shrinking the canvas afterwards leaves the overlay looking
+                // oversized/misaligned. Requesting a small resolution up front keeps the canvas
+                // (and its overlay) close to our actual display size, so no CSS fighting is needed.
+                videoConstraints: {facingMode: "environment", width: {ideal: 480}, height: {ideal: 480}},
+                qrbox: (width, height) => {
+                    const size = Math.floor(Math.min(width, height) * 0.75);
+                    return {width: size, height: size};
+                }
+            },
             (decodedText) => submitScan(decodedText),
             () => {
             }
         ).catch((err) => {
-            resultEl.textContent = "Impossible d'accéder à la caméra : " + err;
-            resultEl.className = "scan-result error";
+            showCameraError("Impossible d'accéder à la caméra : " + err);
         });
+    }
+
+    if (typeof Html5Qrcode === "undefined") {
+        showCameraError("Lecteur de QR code indisponible (script non chargé).");
+    } else if (!closed) {
+        if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showCameraError("La caméra nécessite une connexion sécurisée (HTTPS). Rechargez la page en HTTPS pour scanner.");
+        } else {
+            // Some mobile browsers never show the native permission prompt when html5-qrcode's
+            // own start() is called directly with a facingMode constraint. Requesting a plain
+            // getUserMedia stream first reliably triggers the OS/browser permission dialog, then
+            // we hand off to html5-qrcode once access is actually granted.
+            navigator.mediaDevices.getUserMedia({video: true})
+                .then((stream) => {
+                    stream.getTracks().forEach((track) => track.stop());
+                    startQrReader();
+                })
+                .catch((err) => {
+                    if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
+                        showCameraError("Accès à la caméra refusé. Autorisez la caméra pour ce site dans les réglages " +
+                            "du navigateur (icône cadenas à côté de l'adresse), puis rechargez la page.");
+                    } else if (err && err.name === "NotFoundError") {
+                        showCameraError("Aucune caméra détectée sur cet appareil.");
+                    } else {
+                        showCameraError("Impossible d'accéder à la caméra : " + err);
+                    }
+                });
+        }
     }
 </script>
 </body>

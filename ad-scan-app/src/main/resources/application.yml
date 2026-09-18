@@ -16,6 +16,9 @@ spring:
 
 server:
   port: 9498
+  # Trusts X-Forwarded-Proto/Host/Port from the reverse proxy (Cloudflare Tunnel, nginx, ...) so
+  # redirects and generated URLs use https instead of the app's real (plain HTTP) local scheme.
+  forward-headers-strategy: framework
 
 app:
   # Valeurs par défaut utilisées tant que data/config.yml n'existe pas ; ce dernier les surcharge.

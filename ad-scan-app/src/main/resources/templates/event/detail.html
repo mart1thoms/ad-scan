@@ -7,6 +7,7 @@
     <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
     <title th:text="${appName} + ' — ' + ${event.name}">Événement</title>
     <link rel="stylesheet" th:href="@{/css/app.css}"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
 </head>
 <body>
 <div th:replace="~{fragments/nav :: nav}"></div>
@@ -26,6 +27,7 @@
                 <span class="entry-counter-label">entrées</span>
             </div>
             <a th:unless="${event.closed}" class="btn" th:href="@{/events/{id}/scan(id=${event.id})}">Scanner les entrées</a>
+            <button type="button" id="print-stats-btn" class="btn">Imprimer en PDF</button>
             <form th:unless="${event.closed}" method="post" th:action="@{/events/{id}/close(id=${event.id})}"
                   onsubmit="return confirm('Fermer la soirée ? Plus aucune entrée ne sera acceptée (les stats restent consultables).');">
                 <button type="submit" class="btn btn-danger">Fermer la soirée</button>
@@ -44,6 +46,9 @@
     <h3>Statistiques</h3>
     <div id="event-stats" class="stats-grid"></div>
 
+    <h3>Graphiques</h3>
+    <div id="event-charts" class="charts-grid"></div>
+
     <h3>Historique des scans</h3>
     <div class="table-wrap">
         <table>
@@ -56,9 +61,9 @@
             </thead>
             <tbody>
             <tr th:each="entry : ${history}">
-                <td th:text="${#temporals.format(entry.scannedAt, 'HH:mm:ss')}"></td>
-                <td th:text="${entry.memberName} ?: 'Clé inconnue'"></td>
-                <td>
+                <td data-label="Heure" th:text="${#temporals.format(entry.scannedAt, 'HH:mm:ss')}"></td>
+                <td data-label="Adhérent" th:text="${entry.memberName} ?: 'Clé inconnue'"></td>
+                <td data-label="Statut">
                     <span th:switch="${entry.status}">
                         <span th:case="'OK'" class="status-badge ok">Entrée validée</span>
                         <span th:case="'DUPLICATE'" class="status-badge warn">Doublon</span>
@@ -90,7 +95,7 @@
             try {
                 const response = await fetch(statsEndpoint, {headers: {"Accept": "application/json"}});
                 if (response.ok) {
-                    statsView.update(await response.json());
+                    updateAll(await response.json());
                 }
             } catch (e) {
                 // Offline for a moment: keep the last figures on screen.
@@ -109,10 +114,94 @@
         }
 
         const statsView = createStatsView(document.getElementById("event-stats"), {onAdjust: adjustManual});
-        statsView.update(initialStats);
+
+        // ---- Charts -------------------------------------------------------------------------------
+
+        const CHART_COLORS = ["#2b3a55", "#3f5378", "#5f89b3", "#8fb8d9", "#c9a15c", "#a15c00"];
+        const chartsContainer = document.getElementById("event-charts");
+        const charts = {};
+
+        function chartCard(id, title) {
+            let card = document.getElementById("card-" + id);
+            if (card) {
+                return card.querySelector("canvas");
+            }
+            card = document.createElement("div");
+            card.className = "chart-card";
+            card.id = "card-" + id;
+            const heading = document.createElement("h4");
+            heading.textContent = title;
+            const canvas = document.createElement("canvas");
+            card.append(heading, canvas);
+            chartsContainer.appendChild(card);
+            return canvas;
+        }
+
+        function drawChart(id, title, type, labels, values) {
+            const canvas = chartCard(id, title);
+            const data = {
+                labels: labels,
+                datasets: [{data: values, backgroundColor: CHART_COLORS, borderWidth: type === "bar" ? 0 : 2, borderColor: "#fff"}]
+            };
+            if (charts[id]) {
+                charts[id].data = data;
+                charts[id].update();
+                return;
+            }
+            charts[id] = new Chart(canvas, {
+                type: type,
+                data: data,
+                options: {
+                    responsive: true,
+                    plugins: {legend: {display: type !== "bar", position: "bottom"}},
+                    scales: type === "bar" ? {y: {beginAtZero: true, ticks: {precision: 0}}} : undefined
+                }
+            });
+        }
+
+        function renderCharts(stats) {
+            if (typeof Chart === "undefined") {
+                chartsContainer.textContent = "Graphiques indisponibles (bibliothèque non chargée — vérifiez la connexion internet).";
+                return;
+            }
+            const breakdown = stats.all || {};
+            const provenanceLabels = ["Étudiants ENSIM", "Personnel ENSIM", "Extérieur"];
+            const provenanceValues = [breakdown.ensim || 0, breakdown.personnel || 0, breakdown.exterieur || 0];
+            if (breakdown.unknownOrigin) {
+                provenanceLabels.push("Non renseigné");
+                provenanceValues.push(breakdown.unknownOrigin);
+            }
+            drawChart("provenance", "Répartition par provenance", "doughnut", provenanceLabels, provenanceValues);
+
+            const years = ["1A", "2A", "3A", "4A", "5A"];
+            drawChart("years", "Étudiants par année", "bar", years, years.map(y => (breakdown.years || {})[y] || 0));
+
+            const filiereEntries = Object.entries(breakdown.filieres || {});
+            if (filiereEntries.length > 0) {
+                drawChart("filieres", "Filière (3A–5A)", "doughnut",
+                    filiereEntries.map(([k]) => k), filiereEntries.map(([, v]) => v));
+            }
+
+            if ((breakdown.alternants || 0) + (breakdown.nonAlternants || 0) > 0) {
+                drawChart("alternance", "Alternance (3A–5A)", "doughnut",
+                    ["Alternants", "Non alternants"], [breakdown.alternants || 0, breakdown.nonAlternants || 0]);
+            }
+        }
+
+        function updateAll(stats) {
+            statsView.update(stats);
+            renderCharts(stats);
+        }
+
+        updateAll(initialStats);
         // Keeps the figures live while a scan is going on elsewhere (another phone at the door).
         if (!initialStats.closed) {
             setInterval(refreshStats, 5000);
+        }
+
+        const printBtn = document.getElementById("print-stats-btn");
+        if (printBtn) {
+            printBtn.addEventListener("click", () => window.print());
         }
     </script>
 </main>

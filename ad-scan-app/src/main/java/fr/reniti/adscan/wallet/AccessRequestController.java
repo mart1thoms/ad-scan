@@ -66,7 +66,7 @@ public class AccessRequestController {
                 case "pdf" -> ResponseEntity.ok()
                         .contentType(MediaType.APPLICATION_PDF)
                         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"carte-membre-" + member.id() + ".pdf\"")
-                        .body(AccessCardPdfGenerator.generate(appProperties.name(), member));
+                        .body(AccessCardPdfGenerator.generate(appProperties, member));
                 default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type de demande invalide.");
             };
         } catch (IOException | WriterException e) {

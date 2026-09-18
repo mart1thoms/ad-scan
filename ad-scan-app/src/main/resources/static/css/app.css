@@ -52,6 +52,7 @@ header.app-header h1 {
     background: #eceff3;
     font-size: 0.85rem;
     color: #444;
+    overflow-wrap: anywhere;
 }
 
 .register-hint a {
@@ -66,6 +67,8 @@ nav.app-nav {
 }
 
 nav.app-nav a {
+    display: inline-block;
+    padding: 0.35rem 0.1rem;
     color: white;
     text-decoration: none;
     opacity: 0.85;
@@ -86,6 +89,60 @@ main {
 .table-wrap {
     width: 100%;
     overflow-x: auto;
+}
+
+/* ---- Compact one-line list (members) --------------------------------------------------------- */
+
+.member-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.member-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.member-list li:last-child {
+    border-bottom: none;
+}
+
+.member-list-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #1c1c1e;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.member-list-name:hover {
+    text-decoration: underline;
+}
+
+.member-list .status-badge {
+    flex-shrink: 0;
+}
+
+.member-list form {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.member-list-empty {
+    color: #888;
+    font-style: italic;
+    padding: 0.9rem;
 }
 
 table {
@@ -543,6 +600,11 @@ dialog#share-modal::backdrop {
         text-align: center;
     }
 
+    /* Keep the member list's delete button compact so the row stays on one line. */
+    .member-list .btn {
+        width: auto;
+    }
+
     form.form-card {
         max-width: 100%;
         padding: 1.25rem;
@@ -554,12 +616,65 @@ dialog#share-modal::backdrop {
         padding: 1.5rem;
     }
 
-    table {
-        font-size: 0.85rem;
+    .inline-form {
+        flex-wrap: wrap;
     }
 
-    th, td {
-        padding: 0.5rem 0.6rem;
+    .inline-form input[type="date"] {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    /* Wide data tables (9 columns on the members list) don't work as a horizontally-scrolling
+       strip on a phone — turn each row into its own labeled card instead, stacked vertically. */
+    .table-wrap table {
+        min-width: 0;
+    }
+
+    .table-wrap thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td {
+        display: block;
+        width: 100%;
+    }
+
+    .table-wrap tr {
+        background: white;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+    }
+
+    .table-wrap td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.55rem 0.8rem;
+        border-bottom: 1px solid var(--color-border);
+        text-align: right;
+        font-size: 0.9rem;
+        word-break: break-word;
+    }
+
+    .table-wrap td:last-child {
+        border-bottom: none;
+    }
+
+    .table-wrap td[data-label]::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #666;
+        text-align: left;
+        margin-right: auto;
+        padding-right: 0.75rem;
     }
 }
 
@@ -966,17 +1081,35 @@ dialog#share-modal::backdrop {
 .scanner-frame {
     position: relative;
     width: 100%;
-    max-width: 420px;
-    margin: 1rem 0;
+    max-width: 280px;
+    aspect-ratio: 1 / 1;
+    max-height: 280px;
+    margin: 1rem auto;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #111;
 }
 
 .scanner-frame #qr-reader {
     margin: 0;
     max-width: none;
-    min-height: 240px;
+    width: 100%;
+    height: 100%;
     background: #111;
-    border-radius: 8px;
     overflow: hidden;
+}
+
+/* html5-qrcode draws the live preview onto a <canvas> sized to the camera's native resolution
+   (requested small and square via videoConstraints in scan.html) and separately positions its
+   scan-box overlay <div> as an absolutely-filled child of #qr-reader, in that same native pixel
+   space. Forcing the canvas to a different size/crop via CSS (e.g. object-fit) would desync it
+   from that overlay, so it only gets a plain proportional scale-down here, never a crop. */
+.scanner-frame #qr-reader canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    margin: 0 auto;
 }
 
 .scan-overlay {
@@ -1208,9 +1341,9 @@ dialog#stats-modal::backdrop {
         grid-column: 1;
     }
 
-    .scanner-frame {
-        max-width: none;
-    }
+    /* The base 280x280 square cap (in the non-media rule above) already fits comfortably on a
+       phone screen width — no separate override needed, and none that could fight the 1:1
+       aspect-ratio and stretch the frame into a rectangle. */
 
     .manual-btn {
         font-size: 0.85rem;
@@ -1234,5 +1367,60 @@ dialog#stats-modal::backdrop {
 
     .stat-row {
         grid-template-columns: minmax(5rem, 1fr) 1.5fr auto;
+    }
+}
+
+/* ---- Charts (event stats) --------------------------------------------------------------------- */
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.chart-card {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.chart-card h4 {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    color: #444;
+}
+
+.chart-card canvas {
+    max-height: 240px;
+}
+
+/* ---- Print (event stats → "PDF" via the browser's print dialog) ------------------------------- */
+
+@media print {
+    header.app-header, .register-hint, nav.app-nav,
+    .actions-bar .btn, .actions-bar form, .table-wrap, h3 + .table-wrap,
+    #print-stats-btn {
+        display: none !important;
+    }
+
+    body {
+        background: white;
+    }
+
+    main {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .charts-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .chart-card, .stat-tile, .stat-group {
+        border: 1px solid #ccc;
+        break-inside: avoid;
     }
 }
